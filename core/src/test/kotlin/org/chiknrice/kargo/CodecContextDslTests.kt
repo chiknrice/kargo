@@ -26,7 +26,7 @@ class CodecContextDslTests {
 
     @Test
     fun `Creating an empty CodecContextTemplate is allowed`() {
-        var template = codecContextTemplate { }
+        val template = codecContextTemplate { }
         assertThat(template).isInstanceOf(CodecContextTemplate::class.java)
     }
 
