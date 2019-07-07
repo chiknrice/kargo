@@ -16,7 +16,10 @@ package org.chiknrice.kargo
 
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jetbrains.kotlin.script.jsr223.KotlinJsr223JvmLocalScriptEngine
 import org.junit.jupiter.api.Test
+import javax.script.ScriptEngineManager
+import javax.script.ScriptException
 
 data class ValidConfig(var intProperty: Int = 0)
 data class AnotherValidConfig(var stringProperty: String = "")
@@ -108,6 +111,126 @@ class CodecContextDslTests {
             }.createNew().get(AnotherValidConfig::class)
         }.isInstanceOf(ConfigurationException::class.java)
                 .hasMessage("Configuration class org.chiknrice.kargo.AnotherValidConfig not found")
+    }
+
+}
+
+class CodecContextCompileTests {
+
+    private fun scriptEngine() = ScriptEngineManager().getEngineByExtension("kts") as KotlinJsr223JvmLocalScriptEngine
+
+    @Test
+    fun `CodecContext cannot be created by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    CodecContext(mapOf())
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access '<init>': it is internal in 'CodecContext'
+                    CodecContext(mapOf())
+                    ^
+                    
+                    """.trimIndent())
+    }
+
+    @Test
+    fun `CodecContextTemplate cannot be created by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+
+                    CodecContextTemplate(listOf())
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access '<init>': it is internal in 'CodecContextTemplate'
+                    CodecContextTemplate(listOf())
+                    ^
+                    
+                    """.trimIndent())
+    }
+
+    @Test
+    fun `CodecContextTemplate#createNew() cannot be called by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+
+                    codecContextTemplate { }.createNew()
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access 'createNew': it is internal in 'CodecContextTemplate'
+                    codecContextTemplate { }.createNew()
+                                             ^
+                    
+                    """.trimIndent())
+    }
+
+    @Test
+    fun `ConfigTemplate cannot be created by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+
+                    ConfigTemplate(String::class) {}
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access 'ConfigTemplate': it is internal in 'org.chiknrice.kargo'
+                    ConfigTemplate(String::class) {}
+                    ^
+                    
+                    """.trimIndent())
+    }
+
+    @Test
+    fun `CodecContextTemplateBuilder cannot be created by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+
+                    CodecContextTemplateBuilder()
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access '<init>': it is internal in 'CodecContextTemplateBuilder'
+                    CodecContextTemplateBuilder()
+                    ^
+                    
+                    """.trimIndent())
+    }
+
+    @Test
+    fun `The build() function inside codecContextTemplate dsl cannot be called by a client`() {
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+
+                    codecContextTemplate { build() }
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessage("""
+                    Error: error: cannot access 'build': it is internal in 'CodecContextTemplateBuilder'
+                    codecContextTemplate { build() }
+                                           ^
+                    
+                    """.trimIndent())
     }
 
 }
