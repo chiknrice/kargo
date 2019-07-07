@@ -17,6 +17,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     base
     kotlin("jvm") version "1.3.41" apply false
+    jacoco
+    id("com.github.kt3k.coveralls") version "2.8.4"
 }
 
 allprojects {
@@ -27,12 +29,13 @@ allprojects {
     repositories {
         jcenter()
     }
-    
+
 }
 
 subprojects {
 
     apply(plugin = "kotlin")
+    apply(plugin = "jacoco")
 
     dependencies {
         "implementation"(kotlin("stdlib-jdk8"))
@@ -62,3 +65,17 @@ tasks.withType<Wrapper> {
     gradleVersion = "5.5"
 }
 
+tasks.register<JacocoReport>("jacocoRootTestReport") {
+    sourceDirectories.from(subprojects.flatMap { it.the<SourceSetContainer>()["main"].allSource.srcDirs })
+    classDirectories.from(subprojects.flatMap { it.the<SourceSetContainer>()["main"].output })
+    executionData.from(subprojects.flatMap { files(it.tasks.withType<Test>()) }
+            .filter { it.exists() && it.name.endsWith(".exec") })
+    reports {
+        xml.isEnabled = true
+    }
+}
+
+coveralls {
+    sourceDirs = subprojects.flatMap { it.the<SourceSetContainer>()["main"].allSource.srcDirs }.map { it.absolutePath }
+    jacocoReportPath = "build/reports/jacoco/jacocoRootTestReport/jacocoRootTestReport.xml"
+}

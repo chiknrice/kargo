@@ -12,3 +12,6 @@ branches:
     - /^feature\/.+$/
     - /^v[0-9]{1,3}\.[0-9]{1,3}/
 
+after_success:
+  - ./gradlew jacocoRootTestReport coveralls
+
