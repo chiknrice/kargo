@@ -12,6 +12,9 @@
  *
  */
 
-rootProject.name = "kargo"
+package org.chiknrice.kargo
 
-include("core")
+class ConfigurationException : RuntimeException {
+    constructor(message: String, cause: Exception?) : super(message, cause)
+    constructor(message: String) : super(message)
+}

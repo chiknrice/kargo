@@ -12,6 +12,6 @@
  *
  */
 
-rootProject.name = "kargo"
-
-include("core")
+dependencies {
+    implementation(kotlin("reflect"))
+}

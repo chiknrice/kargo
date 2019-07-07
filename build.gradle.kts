@@ -12,6 +12,8 @@
  *
  */
 
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     base
     kotlin("jvm") version "1.3.41" apply false
@@ -26,6 +28,34 @@ allprojects {
         jcenter()
     }
     
+}
+
+subprojects {
+
+    apply(plugin = "kotlin")
+
+    dependencies {
+        "implementation"(kotlin("stdlib-jdk8"))
+        "testImplementation"("org.junit.jupiter:junit-jupiter:5.5.0")
+        "testImplementation"("org.assertj:assertj-core:3.12.2")
+        "testImplementation"("io.mockk:mockk:1.9.3")
+    }
+
+    tasks.withType<KotlinCompile>().configureEach {
+        kotlinOptions {
+            suppressWarnings = true
+            jvmTarget = "1.8"
+        }
+    }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
+
+    tasks.withType<Jar> {
+        archiveBaseName.set("${rootProject.name}-${archiveBaseName.get()}")
+    }
+
 }
 
 tasks.withType<Wrapper> {
