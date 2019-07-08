@@ -38,7 +38,7 @@ internal typealias FilterWrappingSpec<T> = (chain: Codec<T>) -> Codec<T>
 
 fun <T> Codec<T>.filterWith(wrap: FilterWrappingSpec<T>) = wrap(this)
 
-class CodecFilterBuilder<T> internal constructor(){
+class CodecFilterBuilder<T> internal constructor() {
 
     private lateinit var encodeFilterBlock: EncodeFilterBlock<T>
     private lateinit var decodeFilterBlock: DecodeFilterBlock<T>

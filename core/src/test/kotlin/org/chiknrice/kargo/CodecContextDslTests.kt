@@ -115,12 +115,15 @@ class CodecContextDslTests {
 
 }
 
-class CodecContextCompileTests {
+class CodecContextCompileTimeTests {
 
     private fun scriptEngine() = ScriptEngineManager().getEngineByExtension("kts") as KotlinJsr223JvmLocalScriptEngine
 
     @Test
-    fun `CodecContext cannot be created by a client`() {
+    fun `CodecContext cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecContext(mapOf())
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -130,16 +133,14 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access '<init>': it is internal in 'CodecContext'
-                    CodecContext(mapOf())
-                    ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access '<init>': it is internal in 'CodecContext'")
     }
 
     @Test
-    fun `CodecContextTemplate cannot be created by a client`() {
+    fun `CodecContextTemplate cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecContextTemplate(listOf())
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -149,16 +150,14 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access '<init>': it is internal in 'CodecContextTemplate'
-                    CodecContextTemplate(listOf())
-                    ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access '<init>': it is internal in 'CodecContextTemplate'")
     }
 
     @Test
-    fun `CodecContextTemplate#createNew() cannot be called by a client`() {
+    fun `CodecContextTemplate#createNew cannot be called externally`() {
+        // showing this actually compiles internally
+        codecContextTemplate { }.createNew()
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -168,16 +167,14 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access 'createNew': it is internal in 'CodecContextTemplate'
-                    codecContextTemplate { }.createNew()
-                                             ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access 'createNew': it is internal in 'CodecContextTemplate'")
     }
 
     @Test
-    fun `ConfigTemplate cannot be created by a client`() {
+    fun `ConfigTemplate cannot be created externally`() {
+        // showing this actually compiles internally
+        ConfigTemplate(String::class) {}
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -187,16 +184,14 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access 'ConfigTemplate': it is internal in 'org.chiknrice.kargo'
-                    ConfigTemplate(String::class) {}
-                    ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access 'ConfigTemplate': it is internal in 'org.chiknrice.kargo'")
     }
 
     @Test
-    fun `CodecContextTemplateBuilder cannot be created by a client`() {
+    fun `CodecContextTemplateBuilder cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecContextTemplateBuilder()
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -206,16 +201,14 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access '<init>': it is internal in 'CodecContextTemplateBuilder'
-                    CodecContextTemplateBuilder()
-                    ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access '<init>': it is internal in 'CodecContextTemplateBuilder'")
     }
 
     @Test
-    fun `The build() function inside codecContextTemplate dsl cannot be called by a client`() {
+    fun `The build function inside codecContextTemplate dsl cannot be called externally`() {
+        // showing this actually compiles internally
+        codecContextTemplate { build() }
+
         assertThatThrownBy {
             with(scriptEngine()) {
                 compile("""
@@ -225,12 +218,7 @@ class CodecContextCompileTests {
                     """.trimIndent())
             }
         }.isInstanceOf(ScriptException::class.java)
-                .hasMessage("""
-                    Error: error: cannot access 'build': it is internal in 'CodecContextTemplateBuilder'
-                    codecContextTemplate { build() }
-                                           ^
-                    
-                    """.trimIndent())
+                .hasMessageContaining("cannot access 'build': it is internal in 'CodecContextTemplateBuilder'")
     }
 
 }

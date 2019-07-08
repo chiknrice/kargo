@@ -17,8 +17,11 @@ package org.chiknrice.kargo
 import io.mockk.*
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jetbrains.kotlin.script.jsr223.KotlinJsr223JvmLocalScriptEngine
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
+import javax.script.ScriptEngineManager
+import javax.script.ScriptException
 
 class CodecDslTests {
 
@@ -49,7 +52,7 @@ class CodecDslTests {
     @Test
     fun `A complete codec definition should return a valid codec delegating to the supplied codec blocks`() {
         val dummyBuffer = ByteBuffer.allocate(0)
-        val dummyContext = codecContextTemplate {  }.createNew()
+        val dummyContext = codecContextTemplate { }.createNew()
 
         val delegate = mockk<Codec<String>>()
 
@@ -74,6 +77,63 @@ class CodecDslTests {
         verify { delegate.decode(dummyBuffer, dummyContext) }
 
         confirmVerified(delegate)
+    }
+
+}
+
+class CodecCompileTimeTests {
+
+    private fun scriptEngine() = ScriptEngineManager().getEngineByExtension("kts") as KotlinJsr223JvmLocalScriptEngine
+
+    @Test
+    fun `ValueCodec is not visible externally`() {
+        // showing this actually compiles internally
+        ValueCodec({ _, _, _ -> }, { _, _ -> "result" })
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    ValueCodec({ _, _, _ -> }, { _, _ -> "some dummy result" })
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access 'ValueCodec': it is internal in 'org.chiknrice.kargo'")
+    }
+
+    @Test
+    fun `CodecBuilder cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecBuilder<String>()
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    CodecBuilder<String>()
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access '<init>': it is internal in 'CodecBuilder'")
+    }
+
+    @Test
+    fun `The build function inside codec dsl cannot be called externally`() {
+        // showing this actually compiles internally
+        codec<String> { onEncode { _, _, _ -> }; onDecode { _, _ -> "result" }; build() }
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    codec<String> { onEncode { _, _, _ -> }; onDecode { _, _ -> "result" }; build() }
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access 'build': it is internal in 'CodecBuilder'")
     }
 
 }

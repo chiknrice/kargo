@@ -14,16 +14,23 @@
 
 package org.chiknrice.kargo
 
-import io.mockk.*
-import org.assertj.core.api.Assertions.*
+import io.mockk.confirmVerified
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jetbrains.kotlin.script.jsr223.KotlinJsr223JvmLocalScriptEngine
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
+import javax.script.ScriptEngineManager
+import javax.script.ScriptException
+
+val dummyBuffer = ByteBuffer.allocate(0)!!
+val dummyContext = codecContextTemplate { }.createNew()
+val mockCodec = mockk<Codec<String>>()
 
 class CodecFilterDslTests {
-
-    private val dummyBuffer = ByteBuffer.allocate(0)
-    private val dummyContext = codecContextTemplate { }.createNew()
-    private val mockCodec = mockk<Codec<String>>()
 
     @Test
     fun `A codec filter definition without any onDecode and onEncode blocks will result in ConfigurationException`() {
@@ -162,6 +169,63 @@ class CodecFilterDslTests {
                 "lastFilter.decode out"))
 
         confirmVerified(mockCodec)
+    }
+
+}
+
+class CodecFilterCompileTimeTests {
+
+    private fun scriptEngine() = ScriptEngineManager().getEngineByExtension("kts") as KotlinJsr223JvmLocalScriptEngine
+
+    @Test
+    fun `CodecFilter cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecFilter({ _, _, _, _ -> }, { _, _, _ -> "" }, mockCodec)
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    CodecFilter({ _, _, _, _ -> }, { _, _, _ -> "" }, mockCodec)
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access 'CodecFilter': it is internal in 'org.chiknrice.kargo'")
+    }
+
+    @Test
+    fun `CodecFilterBuilder cannot be created externally`() {
+        // showing this actually compiles internally
+        CodecFilterBuilder<String>()
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    CodecFilterBuilder<String>()
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access '<init>': it is internal in 'CodecFilterBuilder'")
+    }
+
+    @Test
+    fun `The build function inside filter dsl cannot be called externally`() {
+        // showing this actually compiles internally
+        filter<String> { onEncodeFilter { _, _, _, _ -> }; onDecodeFilter { _, _, _ -> "result" }; build() }
+
+        assertThatThrownBy {
+            with(scriptEngine()) {
+                compile("""
+                    import org.chiknrice.kargo.*
+                    
+                    filter<String> { onEncodeFilter { _, _, _, _ -> }; onDecodeFilter { _, _, _ -> "result" }; build() }
+                    """.trimIndent())
+            }
+        }.isInstanceOf(ScriptException::class.java)
+                .hasMessageContaining("cannot access 'build': it is internal in 'CodecFilterBuilder'")
     }
 
 }
