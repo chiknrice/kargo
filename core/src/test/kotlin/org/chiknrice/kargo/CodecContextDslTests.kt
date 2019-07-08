@@ -143,7 +143,7 @@ class CodecContextCompileTimeTests {
     @Test
     fun `CodecContextTemplate cannot be created externally`() {
         // showing this actually compiles internally
-        CodecContextTemplate(listOf())
+        CodecContextTemplate(setOf())
 
         assertThatThrownBy {
             with(scriptEngine()) {

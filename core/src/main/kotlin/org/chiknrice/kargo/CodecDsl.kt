@@ -60,14 +60,13 @@ class CodecBuilder<T : Any> internal constructor() {
         decodeBlock = block
     }
 
-    internal fun build(): Codec<T> {
-        if (!::encodeBlock.isInitialized || !::decodeBlock.isInitialized) {
-            throw ConfigurationException("Incomplete codec definition")
-        }
-        return ValueCodec(encodeBlock, decodeBlock)
+    internal fun build() = try {
+        ValueCodec(encodeBlock, decodeBlock)
+    } catch (e: UninitializedPropertyAccessException) {
+        throw ConfigurationException("Incomplete codec definition", e)
     }
 
 }
 
-fun <T : Any> codec(block: CodecBuilder<T>.() -> Unit) =
+fun <T : Any> codec(block: CodecBuilder<T>.() -> Unit): Codec<T> =
         CodecBuilder<T>().apply(block).build()

@@ -26,10 +26,8 @@ class CodecContext internal constructor(private val configs: Map<KClass<*>, Any>
             ?: throw ConfigurationException("Configuration class ${configClass.qualifiedName} not found")) as C
 }
 
-class CodecContextTemplate internal constructor(private val configTemplates: Collection<ConfigTemplate<*>>) {
-    internal fun createNew() = mutableMapOf<KClass<*>, Any>().also { map ->
-        configTemplates.forEach { template -> template.createNew().also { config -> map[config::class] = config } }
-    }.let { CodecContext(it) }
+class CodecContextTemplate internal constructor(private val configTemplates: Set<ConfigTemplate<*>>) {
+    internal fun createNew() = CodecContext(configTemplates.map { it.createNew() }.map { it::class to it }.toMap())
 }
 
 typealias ConfigSpec<T> = T.() -> Unit
@@ -40,20 +38,25 @@ internal class ConfigTemplate<T : Any>(private val configClass: KClass<T>, priva
     } catch (e: IllegalArgumentException) {
         throw ConfigurationException("Invalid configuration class ${configClass.qualifiedName}", e)
     }
+
+    override fun equals(other: Any?) = when (other) {
+        is ConfigTemplate<*> -> configClass == other.configClass
+        else -> false
+    }
+
+    override fun hashCode() = configClass.hashCode()
 }
 
 class CodecContextTemplateBuilder internal constructor() {
-    private val map = mutableMapOf<KClass<*>, ConfigTemplate<*>>()
+    private val templates = mutableSetOf<ConfigTemplate<*>>()
 
     fun <C : Any> with(configClass: KClass<C>, configSpec: ConfigSpec<C> = {}) {
-        if (map.containsKey(configClass)) {
+        if (!templates.add(ConfigTemplate(configClass, configSpec))) {
             throw ConfigurationException("Configuration for ${configClass.qualifiedName} already defined")
-        } else {
-            map[configClass] = ConfigTemplate(configClass, configSpec)
         }
     }
 
-    internal fun build() = CodecContextTemplate(map.values)
+    internal fun build() = CodecContextTemplate(templates)
 }
 
 fun codecContextTemplate(spec: CodecContextTemplateBuilder.() -> Unit) =
