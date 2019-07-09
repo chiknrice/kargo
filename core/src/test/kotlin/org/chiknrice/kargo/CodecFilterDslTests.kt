@@ -30,11 +30,11 @@ import java.nio.ByteBuffer
 import javax.script.ScriptEngineManager
 import javax.script.ScriptException
 
-val dummyBuffer = ByteBuffer.allocate(0)!!
-val dummyContext = codecContextTemplate { }.createNew()
-val mockCodec = mockk<Codec<String>>()
-
 class CodecFilterDslTests {
+
+    private val dummyBuffer = ByteBuffer.allocate(0)!!
+    private val dummyContext = codecContextTemplate { }.createNew()
+    private val mockCodec = mockk<Codec<String>>()
 
     @Test
     fun `A codec filter definition without any onDecode and onEncode blocks will result in ConfigurationException`() {
@@ -178,6 +178,8 @@ class CodecFilterDslTests {
 }
 
 class CodecFilterCompileTimeTests {
+
+    private val mockCodec = mockk<Codec<String>>()
 
     private fun scriptEngine() = ScriptEngineManager().getEngineByExtension("kts") as KotlinJsr223JvmLocalScriptEngine
 
