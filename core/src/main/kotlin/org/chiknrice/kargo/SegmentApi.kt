@@ -23,8 +23,6 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
-
 open abstract class Segment {
 
     internal val internalProperties = linkedMapOf<KProperty<*>, SegmentProperty<*>>()
@@ -32,14 +30,10 @@ open abstract class Segment {
     val properties: Map<KProperty<*>, SegmentProperty<*>>
         get() = internalProperties
 
-    internal companion object {
-        val propertyCodecs = mutableMapOf<PropertyContext, PropertyCodec<*>>()
-    }
-
 }
 
-class SegmentProperty<T> internal constructor(private val property: KProperty<*>,
-                                              private val propertyCodec: PropertyCodec<T>) :
+class SegmentProperty<T : Any> internal constructor(private val property: KProperty<*>,
+                                                    private val propertyCodec: Codec<T>) :
         ReadWriteProperty<Segment, T?> {
 
     private var value: T? = null
@@ -56,7 +50,7 @@ class SegmentProperty<T> internal constructor(private val property: KProperty<*>
 
     fun decode(buffer: ByteBuffer) {
         internalIndex = buffer.arrayOffset() + buffer.position()
-        value = propertyCodec.decode(buffer) ?: throw CodecException("Decoded null property [${property.name}]")
+        value = propertyCodec.decode(buffer)
     }
 
     fun encode(buffer: ByteBuffer) {
@@ -67,46 +61,26 @@ class SegmentProperty<T> internal constructor(private val property: KProperty<*>
 
 }
 
-internal class PropertyCodec<T>(private val codec: Codec<T>, private val context: CodecContext) {
+internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
 
-    fun decode(buffer: ByteBuffer) = codec.decode(buffer, context)
-
-    fun encode(value: T, buffer: ByteBuffer) = codec.encode(value, buffer, context)
-
-}
-
-class SegmentPropertyProvider<T> internal constructor(private val codec: Codec<T>, private val context: CodecContext) {
+class SegmentPropertyProvider<T : Any> internal constructor(private val buildCodec: CodecFactory<T>) {
 
     operator fun provideDelegate(
             thisRef: Segment,
             property: KProperty<*>
     ): ReadWriteProperty<Segment, T?> {
 
-        val propertyCodec = Segment.propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
-            PropertyCodec(codec, context)
-        } as PropertyCodec<T>
+        val codec = propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
+            buildCodec()
+        } as Codec<T>
 
-        return SegmentProperty(property, propertyCodec).also {
+        return SegmentProperty(property, codec).also {
             thisRef.internalProperties[property] = it
         }
     }
 
-}
-
-class SegmentPropertyProviderBuilder<T> internal constructor(private val codec: Codec<T>,
-                                                             private val context: CodecContext) {
-
-    fun <C : Any> override(configClass: KClass<C>, block: ConfigSpec<C>) = context.get(configClass).apply(block)
-
-    internal fun build(): SegmentPropertyProvider<T> {
-        return SegmentPropertyProvider(codec, context)
+    internal companion object {
+        val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
     }
 
 }
-
-fun <T : Any> segment(
-        codec: Codec<T>,
-        contextTemplate: CodecContextTemplate,
-        block: SegmentPropertyProviderBuilder<T>.() -> Unit = {}
-): SegmentPropertyProvider<T> =
-        SegmentPropertyProviderBuilder(codec, contextTemplate.createNew()).apply(block).build()
