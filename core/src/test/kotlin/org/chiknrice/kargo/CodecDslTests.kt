@@ -18,32 +18,47 @@
 
 package org.chiknrice.kargo
 
+import io.mockk.*
+import org.assertj.core.api.Assertions
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
 
 
-// config cannot be a data class with constructor params (but with defaults) if we want to use constructor reference!
-// or else type inference fails
-class StringConfig {
-    var length: Int = -1
-}
+class CodecDslTests {
 
-val stringCodec = codecFor<String>() withConfig ::StringConfig withEncoder { value, buffer, config -> } withDecoder { buffer, config ->
-    TODO("implement this")
-}
+    val mockCodecDelegate = mockk<Codec<String>>()
 
-class RootSegment : Segment() {
-    var element1 by segment<String> {
-        withCodec(stringCodec) {
-            length = 4
-        }
+    @BeforeEach
+    fun resetMocks() {
+        clearMocks(mockCodecDelegate)
     }
-}
-
-class CodecDslTestsx {
 
     @Test
-    fun `Try creating one`() {
-        RootSegment()
+    fun `A codec factory produces a codec which delegates to the supplied encode and decode blocks`() {
+        val testValue = "test"
+        val testBuffer = ByteBuffer.allocate(0)
+
+        every { mockCodecDelegate.encode(testValue, testBuffer) } just Runs
+        every { mockCodecDelegate.decode(testBuffer) } returns testValue
+
+        val buildCodec = defineCodec<String>() withEncoder { value, buffer ->
+            mockCodecDelegate.encode(value, buffer)
+        } withDecoder { buffer ->
+            mockCodecDelegate.decode(buffer)
+        }
+        val codec = buildCodec()
+
+        codec.encode(testValue, testBuffer)
+
+        verify { mockCodecDelegate.encode(testValue, testBuffer) }
+
+        val result = codec.decode(testBuffer)
+
+        Assertions.assertThat(result).isSameAs(testValue)
+
+        verify { mockCodecDelegate.decode(testBuffer) }
+
     }
 
 }

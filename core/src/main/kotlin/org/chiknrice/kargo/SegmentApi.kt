@@ -25,9 +25,9 @@ import kotlin.reflect.KProperty
 
 open abstract class Segment {
 
-    internal val internalProperties = linkedMapOf<KProperty<*>, SegmentProperty<*>>()
+    internal val internalProperties = mutableListOf<SegmentProperty<*>>()
 
-    val properties: Map<KProperty<*>, SegmentProperty<*>>
+    val properties: List<SegmentProperty<*>>
         get() = internalProperties
 
 }
@@ -61,26 +61,3 @@ class SegmentProperty<T : Any> internal constructor(private val property: KPrope
 
 }
 
-internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
-
-class SegmentPropertyProvider<T : Any> internal constructor(private val buildCodec: CodecFactory<T>) {
-
-    operator fun provideDelegate(
-            thisRef: Segment,
-            property: KProperty<*>
-    ): ReadWriteProperty<Segment, T?> {
-
-        val codec = propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
-            buildCodec()
-        } as Codec<T>
-
-        return SegmentProperty(property, codec).also {
-            thisRef.internalProperties[property] = it
-        }
-    }
-
-    internal companion object {
-        val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
-    }
-
-}

@@ -19,7 +19,9 @@
 package org.chiknrice.kargo
 
 import java.nio.ByteBuffer
-
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
 
 internal class ValueCodec<T : Any>(private val encoder: EncoderBlock<T>, private val decoder: DecoderBlock<T>) :
         Codec<T> {
@@ -27,23 +29,24 @@ internal class ValueCodec<T : Any>(private val encoder: EncoderBlock<T>, private
     override fun decode(buffer: ByteBuffer) = decoder(buffer)
 }
 
-class C<T : Any> internal constructor() {
-    infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>) = CC<T, C>(configSupplier)
-    infix fun withEncoder(encoder: EncoderBlock<T>) = CE(encoder)
-    infix fun withDecoder(decoder: DecoderBlock<T>) = CD(decoder)
+internal class C<T : Any> : DefineCodecDsl<T> {
+    override infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>) = CC<T, C>(configSupplier)
+    override infix fun withEncoder(encoder: EncoderBlock<T>) = CE(encoder)
+    override infix fun withDecoder(decoder: DecoderBlock<T>) = CD(decoder)
 
-    class CC<T : Any, C : Any> internal constructor(private val configSupplier: ConfigSupplier<C>) {
-        infix fun withEncoder(encoder: EncoderWithConfigBlock<T, C>) =
+    class CC<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>) :
+            ConfigurableCodecDsl<T, C> {
+        override infix fun withEncoder(encoder: EncoderWithConfigBlock<T, C>) =
                 CCE(configSupplier, encoder)
 
-        infix fun withDecoder(decoder: DecoderWithConfigBlock<T, C>) =
+        override infix fun withDecoder(decoder: DecoderWithConfigBlock<T, C>) =
                 CCD(configSupplier, decoder)
 
-        class CCE<T : Any, C : Any> internal constructor(
-                private val configSupplier: ConfigSupplier<C>,
-                private val encoder: EncoderWithConfigBlock<T, C>
-        ) {
-            infix fun withDecoder(decoder: DecoderWithConfigBlock<T, C>): ConfigurableCodecFactory<T, C> = { override ->
+        class CCE<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>,
+                                    private val encoder: EncoderWithConfigBlock<T, C>
+        ) : WithDecoderDsl<T, DecoderWithConfigBlock<T, C>, ConfigurableCodecFactory<T, C>> {
+            override infix fun withDecoder(
+                    decoder: DecoderWithConfigBlock<T, C>): ConfigurableCodecFactory<T, C> = { override ->
                 configSupplier().apply(override).let { config ->
                     ValueCodec({ value, buffer -> encoder(value, buffer, config) },
                             { buffer -> decoder(buffer, config) })
@@ -51,11 +54,11 @@ class C<T : Any> internal constructor() {
             }
         }
 
-        class CCD<T : Any, C : Any> internal constructor(
-                private val configSupplier: ConfigSupplier<C>,
-                private val decoder: DecoderWithConfigBlock<T, C>
-        ) {
-            infix fun withEncoder(encoder: EncoderWithConfigBlock<T, C>): ConfigurableCodecFactory<T, C> = { override ->
+        class CCD<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>,
+                                    private val decoder: DecoderWithConfigBlock<T, C>
+        ) : WithEncoderDsl<T, EncoderWithConfigBlock<T, C>, ConfigurableCodecFactory<T, C>> {
+            override infix fun withEncoder(
+                    encoder: EncoderWithConfigBlock<T, C>): ConfigurableCodecFactory<T, C> = { override ->
                 configSupplier().apply(override).let { config ->
                     ValueCodec({ value, buffer -> encoder(value, buffer, config) },
                             { buffer -> decoder(buffer, config) })
@@ -64,114 +67,141 @@ class C<T : Any> internal constructor() {
         }
     }
 
-    class CE<T : Any> internal constructor(private val encoder: EncoderBlock<T>) {
-        infix fun withDecoder(decoder: DecoderBlock<T>): CodecFactory<T> = { ValueCodec(encoder, decoder) }
+    class CE<T : Any>(private val encoder: EncoderBlock<T>) :
+            WithDecoderDsl<T, DecoderBlock<T>, CodecFactory<T>> {
+        override infix fun withDecoder(decoder: DecoderBlock<T>): CodecFactory<T> = { ValueCodec(encoder, decoder) }
     }
 
-    class CD<T : Any> internal constructor(private val decoder: DecoderBlock<T>) {
-        infix fun withEncoder(encoder: EncoderBlock<T>): CodecFactory<T> = { ValueCodec(encoder, decoder) }
+    class CD<T : Any>(private val decoder: DecoderBlock<T>) :
+            WithEncoderDsl<T, EncoderBlock<T>, CodecFactory<T>> {
+        override infix fun withEncoder(encoder: EncoderBlock<T>): CodecFactory<T> = { ValueCodec(encoder, decoder) }
     }
 }
 
-fun <T : Any> codecFor() = C<T>()
+internal class F<T : Any> : DefineCodecFilterDsl<T> {
+    override infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>) = FC<T, C>(configSupplier)
+    override infix fun withEncoder(encoderFilter: EncoderFilterBlock<T>) = FE(encoderFilter)
+    override infix fun withDecoder(decoderFilter: DecoderFilterBlock<T>) = FD(decoderFilter)
 
-class F<T : Any> {
-    infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>) = FC<T, C>(configSupplier)
-    infix fun withEncoder(encoder: EncoderFilterBlock<T>) = FE(encoder)
-    infix fun withDecoder(decoder: DecoderFilterBlock<T>) = FD(decoder)
+    class FC<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>) : ConfigurableCodecFilterDsl<T, C> {
+        override infix fun withEncoder(encoderFilter: EncoderFilterWithConfigBlock<T, C>) = FCE(configSupplier,
+                encoderFilter)
 
-    class FC<T : Any, C : Any> internal constructor(private val configSupplier: ConfigSupplier<C>) {
-        infix fun withEncoder(encoder: EncoderFilterWithConfigBlock<T, C>) =
-                FCE(configSupplier, encoder)
+        override infix fun withDecoder(decoderFilter: DecoderFilterWithConfigBlock<T, C>) = FCD(configSupplier,
+                decoderFilter)
 
-        infix fun withDecoder(decoder: DecoderFilterWithConfigBlock<T, C>) =
-                FCD(configSupplier, decoder)
-
-        class FCE<T : Any, C : Any> internal constructor(
-                private val configSupplier: ConfigSupplier<C>,
-                private val encoder: EncoderFilterWithConfigBlock<T, C>
-        ) {
-            infix fun withDecoder(decoder: DecoderFilterWithConfigBlock<T, C>): ConfigurableCodecFilterFactory<T, C> =
+        class FCE<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>,
+                                    private val encoderFilter: EncoderFilterWithConfigBlock<T, C>
+        ) : WithDecoderDsl<T, DecoderFilterWithConfigBlock<T, C>, ConfigurableCodecFilterFactory<T, C>> {
+            override infix fun withDecoder(
+                    decoderFilter: DecoderFilterWithConfigBlock<T, C>): ConfigurableCodecFilterFactory<T, C> =
                     { codec, override ->
                         configSupplier().apply(override).let { config ->
                             ValueCodec({ value, buffer ->
-                                encoder(value, buffer, config, codec)
+                                encoderFilter(value, buffer, config, codec)
                             }, { buffer ->
-                                decoder(buffer, config, codec)
+                                decoderFilter(buffer, config, codec)
                             })
                         }
                     }
         }
 
-        class FCD<T : Any, C : Any> internal constructor(
-                private val configSupplier: ConfigSupplier<C>,
-                private val decoder: DecoderFilterWithConfigBlock<T, C>
-        ) {
-            infix fun withEncoder(encoder: EncoderFilterWithConfigBlock<T, C>): ConfigurableCodecFilterFactory<T, C> =
+        class FCD<T : Any, C : Any>(private val configSupplier: ConfigSupplier<C>,
+                                    private val decoderFilter: DecoderFilterWithConfigBlock<T, C>
+        ) : WithEncoderDsl<T, EncoderFilterWithConfigBlock<T, C>, ConfigurableCodecFilterFactory<T, C>> {
+            override infix fun withEncoder(
+                    encoderFilter: EncoderFilterWithConfigBlock<T, C>): ConfigurableCodecFilterFactory<T, C> =
                     { codec, override ->
                         configSupplier().apply(override).let { config ->
                             ValueCodec({ value, buffer ->
-                                encoder(value, buffer, config, codec)
+                                encoderFilter(value, buffer, config, codec)
                             }, { buffer ->
-                                decoder(buffer, config, codec)
+                                decoderFilter(buffer, config, codec)
                             })
                         }
                     }
         }
     }
 
-    class FE<T : Any> internal constructor(private val encoder: EncoderFilterBlock<T>) {
-        infix fun withDecoder(decoder: DecoderFilterBlock<T>): CodecFilterFactory<T> = { codec ->
-            ValueCodec({ value, buffer -> encoder(value, buffer, codec) }, { buffer -> decoder(buffer, codec) })
+    class FE<T : Any>(private val encoderFilter: EncoderFilterBlock<T>) :
+            WithDecoderDsl<T, DecoderFilterBlock<T>, CodecFilterFactory<T>> {
+        override infix fun withDecoder(decoderFilter: DecoderFilterBlock<T>): CodecFilterFactory<T> = { codec ->
+            ValueCodec({ value, buffer -> encoderFilter(value, buffer, codec) },
+                    { buffer -> decoderFilter(buffer, codec) })
         }
     }
 
-    class FD<T : Any> internal constructor(private val decoder: DecoderFilterBlock<T>) {
-        infix fun withEncoder(encoder: EncoderFilterBlock<T>): CodecFilterFactory<T> = { codec ->
-            ValueCodec({ value, buffer -> encoder(value, buffer, codec) }, { buffer -> decoder(buffer, codec) })
+    class FD<T : Any>(private val decoderFilter: DecoderFilterBlock<T>) :
+            WithEncoderDsl<T, EncoderFilterBlock<T>, CodecFilterFactory<T>> {
+        override infix fun withEncoder(encoderFilter: EncoderFilterBlock<T>): CodecFilterFactory<T> = { codec ->
+            ValueCodec({ value, buffer -> encoderFilter(value, buffer, codec) },
+                    { buffer -> decoderFilter(buffer, codec) })
         }
     }
 }
 
-fun <T : Any> filterFor() = F<T>()
+internal class S<T : Any> : DefineSegmentDsl<T> {
 
-typealias CodecWrapper<T> = (Codec<T>) -> Codec<T>
+    override infix fun using(codecFactory: CodecFactory<T>): FilterDsl<T> = SC(codecFactory)
+    override infix fun <C : Any> using(configurableCodecFactory: ConfigurableCodecFactory<T, C>) = SCC(
+            configurableCodecFactory)
 
-class S<T : Any> {
-
-    private lateinit var sc: SC<T>
-
-    fun withCodec(codecFactory: CodecFactory<T>) = SC(codecFactory).also { sc = it }
-
-    fun <C : Any> withCodec(configurableCodecFactory: ConfigurableCodecFactory<T, C>,
-                            override: ConfigOverride<C> = {}) = SC {
-        configurableCodecFactory(override)
-    }.also { sc = it }
-
-    class SC<T : Any> internal constructor(internal val buildCodec: CodecFactory<T>) {
-
-        internal val filters = mutableListOf<CodecWrapper<T>>()
-
-        fun filteredWith(codecFilterFactory: CodecFilterFactory<T>): SC<T> {
-            filters.add { codecFilterFactory(it) }
-            return this
-        }
-
-        fun <C : Any> filteredWith(configurableCodecFilterFactory: ConfigurableCodecFilterFactory<T, C>,
-                                   override: ConfigOverride<C> = {}): SC<T> {
-            filters.add { configurableCodecFilterFactory(it, override) }
-            return this
-        }
-
+    class SC<T : Any>(private val codecFactory: CodecFactory<T>) : SegmentPropertyProvider<T>() {
+        override fun buildCodec(): Codec<T> = codecFactory()
     }
 
-    internal fun build() = SegmentPropertyProvider {
-        if (!::sc.isInitialized) throw ConfigurationException("A segment requires a codec")
-        var codec = sc.buildCodec()
-        sc.filters.forEach { filter -> codec = filter(codec) }
-        codec
+    class SCC<T : Any, C : Any>(private val configurableCodecFactory: ConfigurableCodecFactory<T, C>) :
+            SegmentPropertyProvider<T>(), FilterOrConfigDsl<T, C> {
+        private var override: ConfigOverride<C> = {}
+        override infix fun withOverride(
+                override: ConfigOverride<C>): FilterDsl<T> = this.also { this.override = override }
+
+        override fun buildCodec(): Codec<T> = configurableCodecFactory(override)
     }
+
+    class SF<T : Any>(private val codec: Codec<T>, private val codecFilterFactory: CodecFilterFactory<T>) :
+            SegmentPropertyProvider<T>() {
+        override fun buildCodec(): Codec<T> = codecFilterFactory(codec)
+    }
+
+    class SCF<T : Any, C : Any>(private val codec: Codec<T>,
+                                private val configurableCodecFilterFactory: ConfigurableCodecFilterFactory<T, C>) :
+            SegmentPropertyProvider<T>(), FilterOrConfigDsl<T, C> {
+        private var override: ConfigOverride<C> = {}
+        override infix fun withOverride(override: ConfigOverride<C>): FilterDsl<T> =
+                this.also { this.override = override }
+
+        override fun buildCodec(): Codec<T> = configurableCodecFilterFactory(codec, override)
+    }
+
+    data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
+
+    abstract class SegmentPropertyProvider<T : Any> : FilterDsl<T> {
+
+        override infix fun filterWith(codecFilterFactory: CodecFilterFactory<T>): FilterDsl<T> = SF(buildCodec(),
+                codecFilterFactory)
+
+        override infix fun <C : Any> filterWith(
+                configurableCodecFilterFactory: ConfigurableCodecFilterFactory<T, C>): FilterOrConfigDsl<T, C> = SCF(
+                buildCodec(), configurableCodecFilterFactory)
+
+        protected abstract fun buildCodec(): Codec<T>
+
+        operator fun provideDelegate(
+                thisRef: Segment,
+                property: KProperty<*>
+        ): ReadWriteProperty<Segment, T?> {
+            val codec = S.propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
+                buildCodec()
+            } as Codec<T>
+            return SegmentProperty(property, codec).also {
+                thisRef.internalProperties.add(it)
+            }
+        }
+    }
+
+    companion object {
+        val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
+    }
+
 }
-
-// TODO: redesign this
-fun <T : Any> segment(builder: S<T>.() -> Unit) = S<T>().apply(builder).build()

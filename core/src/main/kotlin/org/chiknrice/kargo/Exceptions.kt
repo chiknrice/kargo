@@ -18,11 +18,6 @@
 
 package org.chiknrice.kargo
 
-class ConfigurationException : RuntimeException {
-    constructor(message: String, cause: Exception?) : super(message, cause)
-    constructor(message: String) : super(message)
-}
-
 class CodecException : RuntimeException {
     constructor(message: String) : super(message)
 }
