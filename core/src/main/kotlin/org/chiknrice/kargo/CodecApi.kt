@@ -67,7 +67,7 @@ typealias EncodeSegmentBlock<T> = (segment: T, segmentProperties: List<SegmentPr
 /**
  * The contract of decoding a (newly created) segment of type T with the list of segment properties from a ByteBuffer
  */
-typealias DecodeSegmentBlock<T> = (newSegment: T, segmentProperties: List<SegmentProperty<*>>, buffer: ByteBuffer) -> Unit
+typealias DecodeSegmentBlock<T> = (segmentProperties: List<SegmentProperty<*>>, buffer: ByteBuffer, newSegment: T) -> Unit
 
 /**
  * The contract of filtering an encoder when encoding a value of type T based on a configuration of type C
@@ -92,7 +92,7 @@ typealias FilterDecodeBlock<T> = (buffer: ByteBuffer, chain: Decoder<T>) -> T
 /**
  * The contract of building a configurable codec for type T with an override of configuration of type C
  */
-typealias BuildCodecWithOverrideBlock<T, C> = (override: OverrideConfigBlock<C>) -> Codec<T>
+typealias BuildConfigurableCodecBlock<T, C> = (override: OverrideConfigBlock<C>) -> Codec<T>
 
 /**
  * The contract of building a codec for type T
@@ -102,12 +102,12 @@ typealias BuildCodecBlock<T> = () -> Codec<T>
 /**
  * The contract of building a configurable filter of a codec for type T with an override of filter configuration of type C
  */
-typealias BuildFilteredCodecWithConfigBlock<T, C> = (chain: Codec<T>, override: OverrideConfigBlock<C>) -> Codec<T>
+typealias WrapCodecWithConfigurableFilterBlock<T, C> = (chain: Codec<T>, override: OverrideConfigBlock<C>) -> Codec<T>
 
 /**
  * The contract of building a filter of a codec for type T
  */
-typealias BuildFilteredCodecBlock<T> = (chain: Codec<T>) -> Codec<T>
+typealias WrapCodecWithFilterBlock<T> = (chain: Codec<T>) -> Codec<T>
 
 /**
  * The contract of supplying a default configuration of type C

@@ -31,7 +31,7 @@ interface DefineCodecDsl<T : Any> :
  * The contract of what can be done after defineCodecFilter function
  */
 interface DefineCodecFilterDsl<T : Any> :
-        WithEncodeOrWithDecodeDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, BuildFilteredCodecBlock<T>>,
+        WithEncodeOrWithDecodeDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, WrapCodecWithFilterBlock<T>>,
         CodecFilterWithConfigDsl<T>
 
 /**
@@ -53,7 +53,7 @@ typealias ConfigurableCodecDsl<T, C> =
         WithEncodeOrWithDecodeDsl<T,
                 EncodeWithConfigBlock<T, C>,
                 DecodeWithConfigBlock<T, C>,
-                BuildCodecWithOverrideBlock<T, C>>
+                BuildConfigurableCodecBlock<T, C>>
 
 /**
  * The contract of defining a configuration for a codec filter
@@ -67,7 +67,7 @@ typealias ConfigurableCodecFilterDsl<T, C> =
         WithEncodeOrWithDecodeDsl<T,
                 FilterEncodeWithConfigBlock<T, C>,
                 FilterDecodeWithConfigBlock<T, C>,
-                BuildFilteredCodecWithConfigBlock<T, C>>
+                WrapCodecWithConfigurableFilterBlock<T, C>>
 
 /**
  * The contract of defining an encode block
@@ -101,24 +101,41 @@ interface AndDecodesByDsl<T : Any, P, R> {
  * The contract of what can be done after defineSegmentProperty function
  */
 interface DefineSegmentPropertyDsl<T : Any> {
-    infix fun using(buildCodecBlock: BuildCodecBlock<T>): FilterDsl<T>
-    infix fun <C : Any> using(configurableCodecFactory: BuildCodecWithOverrideBlock<T, C>): FilterOrConfigDsl<T, C>
+    infix fun using(buildCodecBlock: BuildCodecBlock<T>): WrappedWithDsl<T>
+    infix fun <C : Any> using(buildConfigurableCodecBlock: BuildConfigurableCodecBlock<T, C>):
+            WrappedWithOrConfigWithDsl<T, C>
 }
 
 /**
  * The contract of providing an option to define config override together with filtering
  */
-interface FilterOrConfigDsl<T : Any, C : Any> : FilterDsl<T> {
-    infix fun withOverride(overrideConfigBlock: OverrideConfigBlock<C>): FilterDsl<T>
+interface WrappedWithOrConfigWithDsl<T : Any, C : Any> : WrappedWithDsl<T> {
+    infix fun withConfig(overrideConfigBlock: OverrideConfigBlock<C>): WrappedWithDsl<T>
 }
 
 /**
  * The contract of providing the option to filter with or without a configuration
  */
-interface FilterDsl<T : Any> {
-    infix fun filterWith(codecFilterFactory: BuildFilteredCodecBlock<T>): FilterDsl<T>
-    infix fun <C : Any> filterWith(configurableCodecFilterFactory: BuildFilteredCodecWithConfigBlock<T, C>):
-            FilterOrConfigDsl<T, C>
+interface WrappedWithDsl<T : Any> {
+    infix fun wrappedWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
+    infix fun <C : Any> wrappedWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
+            ThenWithOrWithConfigDsl<T, C>
+}
+
+/**
+ * The contract of providing the option to define config override together with further filtering
+ */
+interface ThenWithOrWithConfigDsl<T : Any, C : Any> : ThenWithDsl<T> {
+    infix fun withConfig(overrideConfigBlock: OverrideConfigBlock<C>): ThenWithDsl<T>
+}
+
+/**
+ * The contract of providing the option to further filter with or without a configuration
+ */
+interface ThenWithDsl<T : Any> {
+    infix fun thenWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
+    infix fun <C : Any> thenWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
+            ThenWithOrWithConfigDsl<T, C>
 }
 
 /**
