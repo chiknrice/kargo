@@ -18,7 +18,4 @@
 
 dependencies {
     implementation(kotlin("reflect"))
-    testImplementation(kotlin("compiler"))
-    testImplementation(kotlin("script-util"))
-    testRuntimeOnly(kotlin("scripting-compiler"))
 }
