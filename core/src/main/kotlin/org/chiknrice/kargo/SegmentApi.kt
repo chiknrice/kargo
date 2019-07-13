@@ -20,15 +20,11 @@ package org.chiknrice.kargo
 
 import java.nio.ByteBuffer
 import kotlin.properties.ReadWriteProperty
-import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
 open abstract class Segment {
 
-    internal val internalProperties = mutableListOf<SegmentProperty<*>>()
-
-    val properties: List<SegmentProperty<*>>
-        get() = internalProperties
+    internal val properties = mutableListOf<SegmentProperty<*>>()
 
 }
 

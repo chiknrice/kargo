@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
+import kotlin.reflect.full.createInstance
 
 internal class ValueCodec<T : Any>(private val encodeBlock: EncodeBlock<T>, private val decodeBlock: DecodeBlock<T>) :
         Codec<T> {
@@ -30,7 +31,7 @@ internal class ValueCodec<T : Any>(private val encodeBlock: EncodeBlock<T>, priv
 }
 
 internal class C<T : Any> : DefineCodecDsl<T> {
-    override infix fun <C : Any> withConfig(configSupplier: SupplyDefaultConfigBlock<C>) = CC<T, C>(configSupplier)
+    override infix fun <C : Any> withConfig(supplyDefaultConfigBlock: SupplyDefaultConfigBlock<C>) = CC<T, C>(supplyDefaultConfigBlock)
     override infix fun withEncoder(encoder: EncodeBlock<T>) = CE(encoder)
     override infix fun withDecoder(decoder: DecodeBlock<T>) = CD(decoder)
 
@@ -145,7 +146,7 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
     }
 }
 
-internal class S<T : Any> : DefineSegmentDsl<T> {
+internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     override infix fun using(buildCodecBlock: BuildCodecBlock<T>) = SC(buildCodecBlock)
     override infix fun <C : Any> using(buildCodecWithOverrideBlock: BuildCodecWithOverrideBlock<T, C>) =
             SCC(buildCodecWithOverrideBlock)
@@ -178,6 +179,9 @@ internal class S<T : Any> : DefineSegmentDsl<T> {
         override fun buildCodec() = buildFilteredCodecWithConfigBlock(codec, overrideConfigBlock)
     }
 
+    /**
+     * PropertyContext defines the coordinates of a particular property (e.g. in which class the property belongs to)
+     */
     data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
 
     abstract class SegmentPropertyProvider<T : Any> : FilterDsl<T> {
@@ -195,17 +199,56 @@ internal class S<T : Any> : DefineSegmentDsl<T> {
                 thisRef: Segment,
                 property: KProperty<*>
         ): ReadWriteProperty<Segment, T?> {
+            // property codecs scope is only one per class-property - while segment property is one per segment instance
             val codec = S.propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
                 buildCodec()
             } as Codec<T>
             return SegmentProperty(property, codec).also {
-                thisRef.internalProperties.add(it)
+                thisRef.properties.add(it)
             }
         }
     }
 
     companion object {
         val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
+    }
+
+}
+
+internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegmentCodecDsl<T> {
+
+    override fun withEncoder(
+            encodeSegmentBlock: EncodeSegmentBlock<T>): WithDecoderDsl<T, DecodeSegmentBlock<T>, BuildCodecBlock<T>> =
+            SCE(segmentClass, encodeSegmentBlock)
+
+    override fun withDecoder(
+            decodeSegmentBlock: DecodeSegmentBlock<T>): WithEncoderDsl<T, EncodeSegmentBlock<T>, BuildCodecBlock<T>> =
+            SCD(segmentClass, decodeSegmentBlock)
+
+    class SCE<T : Segment>(private val segmentClass: KClass<T>, private val encodeSegmentBlock: EncodeSegmentBlock<T>) :
+            WithDecoderDsl<T, DecodeSegmentBlock<T>, BuildCodecBlock<T>>, BuildCodecBlockBuilder<T>() {
+        override fun withDecoder(decodeSegmentBlock: DecodeSegmentBlock<T>) =
+                createBuildCodecBlock(segmentClass, encodeSegmentBlock, decodeSegmentBlock)
+
+    }
+
+    class SCD<T : Segment>(private val segmentClass: KClass<T>, private val decodeSegmentBlock: DecodeSegmentBlock<T>) :
+            WithEncoderDsl<T, EncodeSegmentBlock<T>, BuildCodecBlock<T>>, BuildCodecBlockBuilder<T>() {
+        override fun withEncoder(encodeSegmentBlock: EncodeSegmentBlock<T>): BuildCodecBlock<T> =
+                createBuildCodecBlock(segmentClass, encodeSegmentBlock, decodeSegmentBlock)
+
+    }
+
+    abstract class BuildCodecBlockBuilder<T : Segment> {
+        fun createBuildCodecBlock(segmentClass: KClass<T>, encodeSegmentBlock: EncodeSegmentBlock<T>,
+                                  decodeSegmentBlock: DecodeSegmentBlock<T>) =
+                defineCodec<T>() withEncoder { value, buffer ->
+                    encodeSegmentBlock(value, value.properties, buffer)
+                } withDecoder { buffer ->
+                    segmentClass.createInstance().apply {
+                        decodeSegmentBlock(this, this.properties, buffer)
+                    }
+                }
     }
 
 }

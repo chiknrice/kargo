@@ -18,6 +18,8 @@
 
 package org.chiknrice.kargo
 
+import kotlin.reflect.KClass
+
 /**
  * The contract of what can be done after defineCodec function
  */
@@ -43,7 +45,7 @@ interface WithEncodeOrWithDecodeDsl<T : Any, E, D, R> :
  * The contract of defining a configuration for a codec
  */
 interface CodecWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configSupplier: SupplyDefaultConfigBlock<C>):
+    infix fun <C : Any> withConfig(supplyDefaultConfigBlock: SupplyDefaultConfigBlock<C>):
             ConfigurableCodecDsl<T, C>
 }
 
@@ -57,7 +59,7 @@ typealias ConfigurableCodecDsl<T, C> =
  * The contract of defining a configuration for a codec filter
  */
 interface CodecFilterWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configSupplier: SupplyDefaultConfigBlock<C>):
+    infix fun <C : Any> withConfig(supplyDefaultConfigBlock: SupplyDefaultConfigBlock<C>):
             ConfigurableCodecFilterDsl<T, C>
 }
 
@@ -82,10 +84,10 @@ interface WithDecoderDsl<T : Any, P, R> {
 }
 
 /**
- * The contract of what can be done after defineSegment function
+ * The contract of what can be done after defineSegmentProperty function
  */
-interface DefineSegmentDsl<T : Any> {
-    infix fun using(codecFactory: BuildCodecBlock<T>): FilterDsl<T>
+interface DefineSegmentPropertyDsl<T : Any> {
+    infix fun using(buildCodecBlock: BuildCodecBlock<T>): FilterDsl<T>
     infix fun <C : Any> using(configurableCodecFactory: BuildCodecWithOverrideBlock<T, C>): FilterOrConfigDsl<T, C>
 }
 
@@ -93,7 +95,7 @@ interface DefineSegmentDsl<T : Any> {
  * The contract of providing an option to define config override together with filtering
  */
 interface FilterOrConfigDsl<T : Any, C : Any> : FilterDsl<T> {
-    infix fun withOverride(override: OverrideConfigBlock<C>): FilterDsl<T>
+    infix fun withOverride(overrideConfigBlock: OverrideConfigBlock<C>): FilterDsl<T>
 }
 
 /**
@@ -101,9 +103,15 @@ interface FilterOrConfigDsl<T : Any, C : Any> : FilterDsl<T> {
  */
 interface FilterDsl<T : Any> {
     infix fun filterWith(codecFilterFactory: BuildFilteredCodecBlock<T>): FilterDsl<T>
-    infix fun <C : Any> filterWith(
-            configurableCodecFilterFactory: BuildFilteredCodecWithConfigBlock<T, C>): FilterOrConfigDsl<T, C>
+    infix fun <C : Any> filterWith(configurableCodecFilterFactory: BuildFilteredCodecWithConfigBlock<T, C>):
+            FilterOrConfigDsl<T, C>
 }
+
+/**
+ * The contract of what can be done after defineSegmentCodec function
+ */
+interface DefineSegmentCodecDsl<T : Segment> :
+        WithEncodeOrWithDecodeDsl<T, EncodeSegmentBlock<T>, DecodeSegmentBlock<T>, BuildCodecBlock<T>>
 
 /**
  * The entrypoint function of defining a codec
@@ -118,4 +126,14 @@ fun <T : Any> defineFilter(): DefineCodecFilterDsl<T> = F()
 /**
  * The entrypoint function of defining a segment property
  */
-fun <T : Any> defineSegment(): DefineSegmentDsl<T> = S()
+fun <T : Any> defineSegmentProperty(): DefineSegmentPropertyDsl<T> = S()
+
+/**
+ * The entrypoint function of defining a segment codec
+ */
+fun <T : Segment> defineSegmentCodec(segmentClass: KClass<T>): DefineSegmentCodecDsl<T> = SC(segmentClass)
+
+/**
+ * A convenience idiomatic kotlin function delegating to defineSegmentCodec function
+ */
+inline fun <reified T : Segment> defineSegmentCodec(): DefineSegmentCodecDsl<T> = defineSegmentCodec(T::class)
