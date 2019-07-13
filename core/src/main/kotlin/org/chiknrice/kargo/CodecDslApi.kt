@@ -35,11 +35,11 @@ interface DefineCodecFilterDsl<T : Any> :
         CodecFilterWithConfigDsl<T>
 
 /**
- * The contract providing the option to define an encoder or a decoder
+ * The contract providing the option to define an encode or a decode block
  */
 interface WithEncodeOrWithDecodeDsl<T : Any, E, D, R> :
-        WithEncoderDsl<T, E, WithDecoderDsl<T, D, R>>,
-        WithDecoderDsl<T, D, WithEncoderDsl<T, E, R>>
+        ThatEncodesByDsl<T, E, AndDecodesByDsl<T, D, R>>,
+        ThatDecodesByDsl<T, D, AndEncodesByDsl<T, E, R>>
 
 /**
  * The contract of defining a configuration for a codec
@@ -70,17 +70,31 @@ typealias ConfigurableCodecFilterDsl<T, C> =
                 BuildFilteredCodecWithConfigBlock<T, C>>
 
 /**
- * The contract of defining an encoder
+ * The contract of defining an encode block
  */
-interface WithEncoderDsl<T : Any, P, R> {
-    infix fun withEncoder(encoder: P): R
+interface ThatEncodesByDsl<T : Any, P, R> {
+    infix fun thatEncodesBy(encodeBlock: P): R
 }
 
 /**
- * The contract of defining a decoder
+ * The contract of defining a decode block
  */
-interface WithDecoderDsl<T : Any, P, R> {
-    infix fun withDecoder(decoder: P): R
+interface ThatDecodesByDsl<T : Any, P, R> {
+    infix fun thatDecodesBy(decodeBlock: P): R
+}
+
+/**
+ * The contract of defining an encode block
+ */
+interface AndEncodesByDsl<T : Any, P, R> {
+    infix fun andEncodesBy(encodeBlock: P): R
+}
+
+/**
+ * The contract of defining a decode block
+ */
+interface AndDecodesByDsl<T : Any, P, R> {
+    infix fun andDecodesBy(decodeBlock: P): R
 }
 
 /**

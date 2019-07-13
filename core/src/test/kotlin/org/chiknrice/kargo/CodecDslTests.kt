@@ -40,7 +40,7 @@ class CodecDslTests {
         every { mockEncode(testValue, testBuffer) } just Runs
         every { mockDecode(testBuffer) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withEncoder mockEncode withDecoder mockDecode
+        val buildCodec = defineCodec<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode
         val codec = buildCodec()
 
         codec.encode(testValue, testBuffer)
@@ -75,7 +75,7 @@ class CodecDslTests {
         every { mockEncodeWithConfig(testValue, testBuffer, testConfig) } just Runs
         every { mockDecodeWithConfig(testBuffer, testConfig) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig withEncoder mockEncodeWithConfig withDecoder mockDecodeWithConfig
+        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
         val codec = buildCodec(mockOverrideConfig)
 
         codec.encode(testValue, testBuffer)
@@ -114,7 +114,7 @@ class CodecDslTests {
         every { mockSupplyDefaultConfig() } returns testConfig
         every { testConfig.mockOverrideConfig() } just Runs
 
-        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig withEncoder mockEncodeWithConfig withDecoder mockDecodeWithConfig
+        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
         buildCodec(mockOverrideConfig)
 
         verify(exactly = 1) { mockSupplyDefaultConfig() }
@@ -148,7 +148,7 @@ class CodecDslTests {
         every { mockEncodeWithConfig(testValue, testBuffer, capture(configArg)) } just Runs
         every { mockDecodeWithConfig(testBuffer, capture(configArg)) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withConfig { Any() } withEncoder mockEncodeWithConfig withDecoder mockDecodeWithConfig
+        val buildCodec = defineCodec<Any>() withConfig { Any() } thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
 
         val codec1 = buildCodec {}
         val codec2 = buildCodec {}
@@ -184,7 +184,7 @@ class CodecDslTests {
         every { mockEncodeWithConfig(testValue, testBuffer, capture(configArg)) } just Runs
         every { mockDecodeWithConfig(testBuffer, capture(configArg)) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withConfig { testConfig } withEncoder mockEncodeWithConfig withDecoder mockDecodeWithConfig
+        val buildCodec = defineCodec<Any>() withConfig { testConfig } thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
 
         val codec1 = buildCodec {}
         val codec2 = buildCodec {}
@@ -224,7 +224,7 @@ class FilterDslTests {
         every { mockFilterEncodeBlock(testValue, testBuffer, mockCodec) } just Runs
         every { mockFilterDecodeBlock(testBuffer, mockCodec) } returns testValue
 
-        val filterCodec = defineFilter<Any>() withEncoder mockFilterEncodeBlock withDecoder mockFilterDecodeBlock
+        val filterCodec = defineFilter<Any>() thatEncodesBy mockFilterEncodeBlock andDecodesBy mockFilterDecodeBlock
 
         val filteredCodec = filterCodec(mockCodec)
 
