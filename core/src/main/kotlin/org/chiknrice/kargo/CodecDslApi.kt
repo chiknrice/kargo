@@ -22,14 +22,14 @@ package org.chiknrice.kargo
  * The contract of what can be done after defineCodec function
  */
 interface DefineCodecDsl<T : Any> :
-        WithEncodeOrWithDecodeDsl<T, EncoderBlock<T>, DecoderBlock<T>, CodecFactory<T>>,
+        WithEncodeOrWithDecodeDsl<T, EncodeBlock<T>, DecodeBlock<T>, BuildCodecBlock<T>>,
         CodecWithConfigDsl<T>
 
 /**
  * The contract of what can be done after defineCodecFilter function
  */
 interface DefineCodecFilterDsl<T : Any> :
-        WithEncodeOrWithDecodeDsl<T, EncoderFilterBlock<T>, DecoderFilterBlock<T>, CodecFilterFactory<T>>,
+        WithEncodeOrWithDecodeDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, BuildFilteredCodecBlock<T>>,
         CodecFilterWithConfigDsl<T>
 
 /**
@@ -43,29 +43,29 @@ interface WithEncodeOrWithDecodeDsl<T : Any, E, D, R> :
  * The contract of defining a configuration for a codec
  */
 interface CodecWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>):
+    infix fun <C : Any> withConfig(configSupplier: SupplyDefaultConfigBlock<C>):
             ConfigurableCodecDsl<T, C>
 }
 
 typealias ConfigurableCodecDsl<T, C> =
         WithEncodeOrWithDecodeDsl<T,
-                EncoderWithConfigBlock<T, C>,
-                DecoderWithConfigBlock<T, C>,
-                ConfigurableCodecFactory<T, C>>
+                EncodeWithConfigBlock<T, C>,
+                DecodeWithConfigBlock<T, C>,
+                BuildCodecWithOverrideBlock<T, C>>
 
 /**
  * The contract of defining a configuration for a codec filter
  */
 interface CodecFilterWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configSupplier: ConfigSupplier<C>):
+    infix fun <C : Any> withConfig(configSupplier: SupplyDefaultConfigBlock<C>):
             ConfigurableCodecFilterDsl<T, C>
 }
 
 typealias ConfigurableCodecFilterDsl<T, C> =
         WithEncodeOrWithDecodeDsl<T,
-                EncoderFilterWithConfigBlock<T, C>,
-                DecoderFilterWithConfigBlock<T, C>,
-                ConfigurableCodecFilterFactory<T, C>>
+                FilterEncodeWithConfigBlock<T, C>,
+                FilterDecodeWithConfigBlock<T, C>,
+                BuildFilteredCodecWithConfigBlock<T, C>>
 
 /**
  * The contract of defining an encoder
@@ -85,24 +85,24 @@ interface WithDecoderDsl<T : Any, P, R> {
  * The contract of what can be done after defineSegment function
  */
 interface DefineSegmentDsl<T : Any> {
-    infix fun using(codecFactory: CodecFactory<T>): FilterDsl<T>
-    infix fun <C : Any> using(configurableCodecFactory: ConfigurableCodecFactory<T, C>): FilterOrConfigDsl<T, C>
+    infix fun using(codecFactory: BuildCodecBlock<T>): FilterDsl<T>
+    infix fun <C : Any> using(configurableCodecFactory: BuildCodecWithOverrideBlock<T, C>): FilterOrConfigDsl<T, C>
 }
 
 /**
  * The contract of providing an option to define config override together with filtering
  */
 interface FilterOrConfigDsl<T : Any, C : Any> : FilterDsl<T> {
-    infix fun withOverride(override: ConfigOverride<C>): FilterDsl<T>
+    infix fun withOverride(override: OverrideConfigBlock<C>): FilterDsl<T>
 }
 
 /**
  * The contract of providing the option to filter with or without a configuration
  */
 interface FilterDsl<T : Any> {
-    infix fun filterWith(codecFilterFactory: CodecFilterFactory<T>): FilterDsl<T>
+    infix fun filterWith(codecFilterFactory: BuildFilteredCodecBlock<T>): FilterDsl<T>
     infix fun <C : Any> filterWith(
-            configurableCodecFilterFactory: ConfigurableCodecFilterFactory<T, C>): FilterOrConfigDsl<T, C>
+            configurableCodecFilterFactory: BuildFilteredCodecWithConfigBlock<T, C>): FilterOrConfigDsl<T, C>
 }
 
 /**

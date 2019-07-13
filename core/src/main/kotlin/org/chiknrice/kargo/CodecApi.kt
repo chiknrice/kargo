@@ -21,86 +21,90 @@ package org.chiknrice.kargo
 import java.nio.ByteBuffer
 
 /**
- * The contract of a codec for value of type T
+ * The contract of an encoder on how to encode a value of type T to a ByteBuffer
  */
-interface Codec<T : Any> {
-    /**
-     * Encode a value of type T to a ByteBuffer
-     */
+interface Encoder<T> {
     fun encode(value: T, buffer: ByteBuffer)
+}
 
-    /**
-     * Decode a value of type T from a ByteBuffer
-     */
+/**
+ * The contract of a decoder on how to decode a value of type T from a ByteBuffer
+ */
+interface Decoder<T> {
     fun decode(buffer: ByteBuffer): T
 }
 
 /**
+ * The contract of a codec for value of type T
+ */
+interface Codec<T : Any> : Encoder<T>, Decoder<T>
+
+/**
  * The contract of encoding a value of type T based on a configuration of type C to a ByteBuffer
  */
-typealias EncoderWithConfigBlock<T, C> = (value: T, buffer: ByteBuffer, config: C) -> Unit
+typealias EncodeWithConfigBlock<T, C> = (value: T, buffer: ByteBuffer, config: C) -> Unit
 
 /**
  * The contract of decoding a value of type T based on a configuration of type C from a ByteBuffer
  */
-typealias DecoderWithConfigBlock<T, C> = (buffer: ByteBuffer, config: C) -> T
+typealias DecodeWithConfigBlock<T, C> = (buffer: ByteBuffer, config: C) -> T
 
 /**
  * The contract of encoding a value of type T to a ByteBuffer
  */
-typealias EncoderBlock<T> = (value: T, buffer: ByteBuffer) -> Unit
+typealias EncodeBlock<T> = (value: T, buffer: ByteBuffer) -> Unit
 
 /**
  * The contract of decoding a value of type T from a ByteBuffer
  */
-typealias DecoderBlock<T> = (buffer: ByteBuffer) -> T
+typealias DecodeBlock<T> = (buffer: ByteBuffer) -> T
 
 /**
- * The contract of filtering a codec when encoding a value of type T based on a configuration of type C to a ByteBuffer
+ * The contract of filtering an encoder when encoding a value of type T based on a configuration of type C
  */
-typealias EncoderFilterWithConfigBlock<T, C> = (value: T, buffer: ByteBuffer, config: C, chain: Codec<T>) -> Unit
+typealias FilterEncodeWithConfigBlock<T, C> = (value: T, buffer: ByteBuffer, config: C, chain: Encoder<T>) -> Unit
 
 /**
- * The contract of filtering a codec when decoding a value of type T based on a configuration of type C from a ByteBuffer
+ * The contract of filtering a decoder when decoding a value of type T based on a configuration of type C
  */
-typealias DecoderFilterWithConfigBlock<T, C> = (buffer: ByteBuffer, config: C, chain: Codec<T>) -> T
+typealias FilterDecodeWithConfigBlock<T, C> = (buffer: ByteBuffer, config: C, chain: Decoder<T>) -> T
 
 /**
- * The contract of filtering a codec when encoding a value of type T to a ByteBuffer
+ * The contract of filtering an encoder when encoding a value of type T
  */
-typealias EncoderFilterBlock<T> = (value: T, buffer: ByteBuffer, chain: Codec<T>) -> Unit
+typealias FilterEncodeBlock<T> = (value: T, buffer: ByteBuffer, chain: Encoder<T>) -> Unit
 
 /**
- * The contract of filtering a codec when decoding a value of type T from a ByteBuffer
+ * The contract of filtering a decoder when decoding a value of type T
  */
-typealias DecoderFilterBlock<T> = (buffer: ByteBuffer, chain: Codec<T>) -> T
+typealias FilterDecodeBlock<T> = (buffer: ByteBuffer, chain: Decoder<T>) -> T
 
 /**
  * The contract of building a configurable codec for type T with an override of configuration of type C
  */
-typealias ConfigurableCodecFactory<T, C> = (override: ConfigOverride<C>) -> Codec<T>
+typealias BuildCodecWithOverrideBlock<T, C> = (override: OverrideConfigBlock<C>) -> Codec<T>
 
 /**
  * The contract of building a codec for type T
  */
-typealias CodecFactory<T> = () -> Codec<T>
+typealias BuildCodecBlock<T> = () -> Codec<T>
 
 /**
  * The contract of building a configurable filter of a codec for type T with an override of filter configuration of type C
  */
-typealias ConfigurableCodecFilterFactory<T, C> = (chain: Codec<T>, override: ConfigOverride<C>) -> Codec<T>
+typealias BuildFilteredCodecWithConfigBlock<T, C> = (chain: Codec<T>, override: OverrideConfigBlock<C>) -> Codec<T>
 
 /**
  * The contract of building a filter of a codec for type T
  */
-typealias CodecFilterFactory<T> = (chain: Codec<T>) -> Codec<T>
+typealias BuildFilteredCodecBlock<T> = (chain: Codec<T>) -> Codec<T>
 
 /**
  * The contract of supplying a default configuration of type C
  */
-typealias ConfigSupplier<C> = () -> C
+typealias SupplyDefaultConfigBlock<C> = () -> C
 
 /**
  * The contract of (possibly) overriding defaults of a configuration of type C
  */
-typealias ConfigOverride<C> = C.() -> Unit
+typealias OverrideConfigBlock<C> = C.() -> Unit

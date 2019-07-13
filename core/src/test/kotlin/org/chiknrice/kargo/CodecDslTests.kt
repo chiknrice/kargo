@@ -19,7 +19,7 @@
 package org.chiknrice.kargo
 
 import io.mockk.*
-import org.assertj.core.api.Assertions
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
@@ -27,38 +27,73 @@ import java.nio.ByteBuffer
 
 class CodecDslTests {
 
-    val mockCodecDelegate = mockk<Codec<String>>()
+    val mockEncode = mockk<EncodeBlock<Any>>()
+    val mockDecode = mockk<DecodeBlock<Any>>()
+    val mockEncodeWithConfig = mockk<EncodeWithConfigBlock<Any, Any>>()
+    val mockDecodeWithConfig = mockk<DecodeWithConfigBlock<Any, Any>>()
 
     @BeforeEach
     fun resetMocks() {
-        clearMocks(mockCodecDelegate)
+        clearAllMocks()
     }
 
     @Test
     fun `A codec factory produces a codec which delegates to the supplied encode and decode blocks`() {
-        val testValue = "test"
+        val testValue = Any()
         val testBuffer = ByteBuffer.allocate(0)
 
-        every { mockCodecDelegate.encode(testValue, testBuffer) } just Runs
-        every { mockCodecDelegate.decode(testBuffer) } returns testValue
+        every { mockEncode(testValue, testBuffer) } just Runs
+        every { mockDecode(testBuffer) } returns testValue
 
-        val buildCodec = defineCodec<String>() withEncoder { value, buffer ->
-            mockCodecDelegate.encode(value, buffer)
+        val buildCodec = defineCodec<Any>() withEncoder { value, buffer ->
+            mockEncode(value, buffer)
         } withDecoder { buffer ->
-            mockCodecDelegate.decode(buffer)
+            mockDecode(buffer)
         }
         val codec = buildCodec()
 
         codec.encode(testValue, testBuffer)
 
-        verify { mockCodecDelegate.encode(testValue, testBuffer) }
+        verify { mockEncode(testValue, testBuffer) }
 
         val result = codec.decode(testBuffer)
 
-        Assertions.assertThat(result).isSameAs(testValue)
+        assertThat(result).isSameAs(testValue)
 
-        verify { mockCodecDelegate.decode(testBuffer) }
+        verify { mockDecode(testBuffer) }
 
+        confirmVerified(mockEncode, mockDecode)
+    }
+
+    @Test
+    fun `A configurable codec factory produces a codec which delegates with config to the supplied encode and decode blocks`() {
+        val testConfig = Any()
+        val testValue = Any()
+        val testBuffer = ByteBuffer.allocate(0)
+
+        assertThat(testValue).isNotSameAs(testConfig)
+
+        every { mockEncodeWithConfig(testValue, testBuffer, testConfig) } just Runs
+        every { mockDecodeWithConfig(testBuffer, testConfig) } returns testValue
+
+        val buildCodec = defineCodec<Any>() withConfig { testConfig } withEncoder { value, buffer, config ->
+            mockEncodeWithConfig(value, buffer, config)
+        } withDecoder { buffer, config ->
+            mockDecodeWithConfig(buffer, config)
+        }
+        val codec = buildCodec { assertThat(this).isSameAs(testConfig) }
+
+        codec.encode(testValue, testBuffer)
+
+        verify { mockEncodeWithConfig(testValue, testBuffer, testConfig) }
+
+        val result = codec.decode(testBuffer)
+
+        assertThat(result).isSameAs(testValue)
+
+        verify { mockDecodeWithConfig(testBuffer, testConfig) }
+
+        confirmVerified(mockEncodeWithConfig, mockDecodeWithConfig)
     }
 
 }
