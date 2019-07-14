@@ -22,6 +22,7 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.nio.ByteBuffer
@@ -154,7 +155,7 @@ class CodecDslTests {
     }
 
     @Test
-    fun `A config override block applies to each config on every codec creation`(
+    fun `A codec config override block applies to the config`(
             @MockK(relaxed = true) mockEncode: EncodeWithConfigBlock<Any, Any>,
             @MockK(relaxed = true) mockDecode: DecodeWithConfigBlock<Any, Any>,
             @MockK mockOverrideConfig: OverrideConfigBlock<Any>
@@ -164,14 +165,9 @@ class CodecDslTests {
         val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
         buildCodec(mockOverrideConfig)
 
-        val config1 = configArg.captured
+        val config = configArg.captured
 
-        verify(exactly = 1) { config1.mockOverrideConfig() }
-
-        buildCodec(mockOverrideConfig)
-        val config2 = configArg.captured
-
-        verify(exactly = 1) { config2.mockOverrideConfig() }
+        verify(exactly = 1) { config.mockOverrideConfig() }
 
         confirmVerified(mockOverrideConfig)
     }
@@ -189,27 +185,77 @@ class FilterDslTests {
 
     @Test
     fun `A codec filter delegates to the defined encode and decode blocks with the wrapped codec`(
-            @MockK mockFilterEncodeBlock: FilterEncodeBlock<Any>,
-            @MockK mockFilterDecodeBlock: FilterDecodeBlock<Any>
+            @MockK mockEncode: FilterEncodeBlock<Any>,
+            @MockK mockDecode: FilterDecodeBlock<Any>
     ) {
-        every { mockFilterEncodeBlock(testValue, mockBuffer, mockCodec) } just Runs
-        every { mockFilterDecodeBlock(mockBuffer, mockCodec) } returns testValue
+        every { mockEncode(testValue, mockBuffer, mockCodec) } just Runs
+        every { mockDecode(mockBuffer, mockCodec) } returns testValue
 
-        val filterCodec = defineFilter<Any>() thatEncodesBy mockFilterEncodeBlock andDecodesBy mockFilterDecodeBlock
+        val filterCodec = defineFilter<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode
 
         val filteredCodec = filterCodec(mockCodec)
 
         filteredCodec.encode(testValue, mockBuffer)
 
-        verify { mockFilterEncodeBlock(testValue, mockBuffer, mockCodec) }
+        verify { mockEncode(testValue, mockBuffer, mockCodec) }
 
         val result = filteredCodec.decode(mockBuffer)
 
         assertThat(result).isSameAs(testValue)
 
-        verify { mockFilterDecodeBlock(mockBuffer, mockCodec) }
+        verify { mockDecode(mockBuffer, mockCodec) }
 
-        confirmVerified(mockFilterEncodeBlock, mockFilterDecodeBlock)
+        confirmVerified(mockEncode, mockDecode)
+    }
+
+    @Test
+    fun `A codec filter defined either encoder or decoder first behaves the same`(
+            @MockK mockEncode: FilterEncodeBlock<Any>,
+            @MockK mockDecode: FilterDecodeBlock<Any>
+    ) {
+        every { mockEncode(testValue, mockBuffer, mockCodec) } just Runs
+        every { mockDecode(mockBuffer, mockCodec) } returns testValue
+
+        val codec1 = (defineFilter<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode)(mockCodec)
+        val codec2 = (defineFilter<Any>() thatDecodesBy mockDecode andEncodesBy mockEncode)(mockCodec)
+
+        codec1.encode(testValue, mockBuffer)
+        codec2.encode(testValue, mockBuffer)
+
+        verify(exactly = 2) { mockEncode(testValue, mockBuffer, mockCodec) }
+
+        val decode1 = codec1.decode(mockBuffer)
+        val decode2 = codec2.decode(mockBuffer)
+
+        assertThat(decode1).isSameAs(decode2)
+
+        verify(exactly = 2) { mockDecode(mockBuffer, mockCodec) }
+
+        confirmVerified(mockEncode, mockDecode)
+    }
+
+    @Test
+    @Disabled
+    fun `A configurable codec filter delegates to the defined encode and decode blocks with the same instance of the config class`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
+    fun `A configurable codec filter defined either encoder or decoder first behaves the same but with each their different instance of config`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
+    fun `A codec config override block applies to the config`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
+    fun `Subsequent filters wraps the previous filter`() {
+        TODO("implement this in segment property tests")
     }
 
 }
