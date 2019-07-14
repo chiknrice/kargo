@@ -182,6 +182,7 @@ class FilterDslTests {
     @MockK(relaxed = true)
     private lateinit var mockCodec: Codec<Any>
     private val testValue = Any()
+    private val configArg = slot<Any>()
 
     @Test
     fun `A codec filter delegates to the defined encode and decode blocks with the wrapped codec`(
@@ -235,21 +236,87 @@ class FilterDslTests {
     }
 
     @Test
-    @Disabled
-    fun `A configurable codec filter delegates to the defined encode and decode blocks with the same instance of the config class`() {
-        TODO("implement this")
+    fun `A configurable codec filter delegates to the defined encode and decode blocks with the same instance of the config class`(
+            @MockK mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: FilterDecodeWithConfigBlock<Any, Any>
+    ) {
+        every { mockEncode(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
+        every { mockDecode(mockBuffer, capture(configArg), mockCodec) } returns testValue
+
+        val wrapCodec = defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
+        val codec = wrapCodec(mockCodec) {}
+
+        codec.encode(testValue, mockBuffer)
+        val encodeConfig = configArg.captured
+
+        val result = codec.decode(mockBuffer)
+        val decodeConfig = configArg.captured
+
+        assertThat(result).isSameAs(testValue)
+
+        assertThat(encodeConfig).isSameAs(decodeConfig)
+
+        verify { mockEncode(testValue, mockBuffer, encodeConfig, mockCodec) }
+        verify { mockDecode(mockBuffer, decodeConfig, mockCodec) }
+
+        confirmVerified(mockEncode, mockDecode)
     }
 
     @Test
-    @Disabled
-    fun `A configurable codec filter defined either encoder or decoder first behaves the same but with each their different instance of config`() {
-        TODO("implement this")
+    fun `A configurable codec filter defined either encoder or decoder first behaves the same but with each their different instance of config`(
+            @MockK mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: FilterDecodeWithConfigBlock<Any, Any>
+    ) {
+        every { mockEncode(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
+        every { mockDecode(mockBuffer, capture(configArg), mockCodec) } returns testValue
+
+        val codec1 = (defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode)(mockCodec) {}
+        val codec2 = (defineFilter<Any>() withConfig Any::class thatDecodesBy mockDecode andEncodesBy mockEncode)(mockCodec) {}
+
+        codec1.encode(testValue, mockBuffer)
+        val encode1Config = configArg.captured
+        codec2.encode(testValue, mockBuffer)
+        val encode2Config = configArg.captured
+
+        verify(exactly = 1) { mockEncode(testValue, mockBuffer, encode1Config, mockCodec) }
+        verify(exactly = 1) { mockEncode(testValue, mockBuffer, encode2Config, mockCodec) }
+
+        assertThat(encode1Config).isNotSameAs(encode2Config)
+
+        val decode1 = codec1.decode(mockBuffer)
+        val decode1Config = configArg.captured
+        val decode2 = codec2.decode(mockBuffer)
+        val decode2Config = configArg.captured
+
+        assertThat(decode1).isSameAs(decode2)
+
+        verify(exactly = 1) { mockDecode(mockBuffer, decode1Config, mockCodec) }
+        verify(exactly = 1) { mockDecode(mockBuffer, decode2Config, mockCodec) }
+
+        assertThat(decode1Config).isNotSameAs(decode2Config)
+
+        assertThat(encode1Config).isSameAs(decode1Config)
+        assertThat(encode2Config).isSameAs(decode2Config)
+
+        confirmVerified(mockEncode, mockDecode)
     }
 
     @Test
-    @Disabled
-    fun `A codec config override block applies to the config`() {
-        TODO("implement this")
+    fun `A codec filter config override block applies to the config`(
+            @MockK(relaxed = true) mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
+            @MockK(relaxed = true) mockDecode: FilterDecodeWithConfigBlock<Any, Any>,
+            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    ) {
+        every { capture(configArg).mockOverrideConfig() } just Runs
+
+        val wrapCodec = defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
+        wrapCodec(mockCodec, mockOverrideConfig)
+
+        val config = configArg.captured
+
+        verify(exactly = 1) { config.mockOverrideConfig() }
+
+        confirmVerified(mockOverrideConfig)
     }
 
     @Test
