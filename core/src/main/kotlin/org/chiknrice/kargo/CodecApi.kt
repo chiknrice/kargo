@@ -62,12 +62,12 @@ typealias DecodeBlock<T> = (buffer: ByteBuffer) -> T
 /**
  * The contract of encoding a segment of type T with the list of segment properties to a ByteBuffer
  */
-typealias EncodeSegmentBlock<T> = (segment: T, segmentProperties: List<SegmentProperty<*>>, buffer: ByteBuffer) -> Unit
+typealias EncodeSegmentBlock<T> = (segment: T, segmentProperties: SegmentProperties, buffer: ByteBuffer) -> Unit
 
 /**
  * The contract of decoding a (newly created) segment of type T with the list of segment properties from a ByteBuffer
  */
-typealias DecodeSegmentBlock<T> = (segmentProperties: List<SegmentProperty<*>>, buffer: ByteBuffer, newSegment: T) -> Unit
+typealias DecodeSegmentBlock<T> = (segmentProperties: SegmentProperties, buffer: ByteBuffer, newSegment: T) -> Unit
 
 /**
  * The contract of filtering an encoder when encoding a value of type T based on a configuration of type C

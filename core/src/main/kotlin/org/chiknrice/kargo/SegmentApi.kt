@@ -57,3 +57,4 @@ class SegmentProperty<T : Any> internal constructor(private val property: KPrope
 
 }
 
+class SegmentProperties(private val inner: List<SegmentProperty<*>>) : List<SegmentProperty<*>> by inner

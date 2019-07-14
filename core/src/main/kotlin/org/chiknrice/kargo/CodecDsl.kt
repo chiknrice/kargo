@@ -199,12 +199,19 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
 
         abstract fun buildCodec(): Codec<T>
 
-        override operator fun provideDelegate(thisRef: Segment, property: KProperty<*>): ReadWriteProperty<Segment, T?> {
+        override operator fun provideDelegate(thisRef: Segment,
+                                              property: KProperty<*>): ReadWriteProperty<Segment, T?> {
             // property codecs scope is only one per class-property - while segment property is one per segment instance
-            val codec = S.propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
-                buildCodec()
-            } as Codec<T>
-            return SegmentProperty(property, codec).also {
+            val segmentClass = thisRef::class
+            val propertyContext = PropertyContext(segmentClass, property)
+            if (!propertyCodecs.containsKey(propertyContext)) {
+                synchronized(segmentClass) {
+                    if (!propertyCodecs.containsKey(propertyContext)) {
+                        propertyCodecs[propertyContext] = buildCodec()
+                    }
+                }
+            }
+            return SegmentProperty(property, propertyCodecs[propertyContext] as Codec<T>).also {
                 thisRef.properties.add(it)
             }
         }
@@ -237,12 +244,13 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
         fun createBuildCodecBlock(segmentClass: KClass<T>, encodeSegmentBlock: EncodeSegmentBlock<T>,
                                   decodeSegmentBlock: DecodeSegmentBlock<T>) =
                 C<T>() thatEncodesBy { value, buffer ->
-                    encodeSegmentBlock(value, value.properties, buffer)
+                    encodeSegmentBlock(value, SegmentProperties(value.properties), buffer)
                 } andDecodesBy { buffer ->
                     segmentClass.createInstance().apply {
-                        decodeSegmentBlock(this.properties, buffer, this)
+                        decodeSegmentBlock(SegmentProperties(this.properties), buffer, this)
                     }
                 }
     }
 
 }
+
