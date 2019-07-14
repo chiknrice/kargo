@@ -153,35 +153,28 @@ class CodecDslTests {
         confirmVerified(mockEncode, mockDecode)
     }
 
-//    @Test
-//    fun `Each call to build the codec would result in a call to supplyDefaultConfig block and overrideConfig block`(
-//            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
-//            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>,
-//            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
-//    ) {
-//        every { Any::class.createInstance() } returns testConfig
-//        every { testConfig.mockOverrideConfig() } just Runs
-//
-//        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
-//        buildCodec(mockOverrideConfig)
-//
-//        verify(exactly = 1) { Any::class.createInstance() }
-//        verify(exactly = 1) { testConfig.mockOverrideConfig() }
-//
-//        buildCodec(mockOverrideConfig)
-//
-//        verify(exactly = 2) { Any::class.createInstance() }
-//        verify(exactly = 2) { testConfig.mockOverrideConfig() }
-//
-//        verifySequence {
-//            Any::class.createInstance()
-//            testConfig.mockOverrideConfig()
-//            Any::class.createInstance()
-//            testConfig.mockOverrideConfig()
-//        }
-//
-//        confirmVerified(Any::class, mockOverrideConfig, mockEncode, mockDecode)
-//    }
+    @Test
+    fun `A config override block applies to each config on every codec creation`(
+            @MockK(relaxed = true) mockEncode: EncodeWithConfigBlock<Any, Any>,
+            @MockK(relaxed = true) mockDecode: DecodeWithConfigBlock<Any, Any>,
+            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    ) {
+        every { capture(configArg).mockOverrideConfig() } just Runs
+
+        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
+        buildCodec(mockOverrideConfig)
+
+        val config1 = configArg.captured
+
+        verify(exactly = 1) { config1.mockOverrideConfig() }
+
+        buildCodec(mockOverrideConfig)
+        val config2 = configArg.captured
+
+        verify(exactly = 1) { config2.mockOverrideConfig() }
+
+        confirmVerified(mockOverrideConfig)
+    }
 
 }
 
