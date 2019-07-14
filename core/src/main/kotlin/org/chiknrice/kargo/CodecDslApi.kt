@@ -157,7 +157,7 @@ fun <T : Any> defineFilter(): DefineCodecFilterDsl<T> = F()
 /**
  * The entrypoint function of defining a segment property
  */
-fun <T : Any> defineSegmentProperty(): DefineSegmentPropertyDsl<T> = S()
+fun <T : Any> defineProperty(): DefineSegmentPropertyDsl<T> = S()
 
 /**
  * The entrypoint function of defining a segment codec

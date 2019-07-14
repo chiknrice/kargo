@@ -238,7 +238,7 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
     abstract class BuildCodecBlockBuilder<T : Segment> {
         fun createBuildCodecBlock(segmentClass: KClass<T>, encodeSegmentBlock: EncodeSegmentBlock<T>,
                                   decodeSegmentBlock: DecodeSegmentBlock<T>) =
-                defineCodec<T>() thatEncodesBy { value, buffer ->
+                C<T>() thatEncodesBy { value, buffer ->
                     encodeSegmentBlock(value, value.properties, buffer)
                 } andDecodesBy { buffer ->
                     segmentClass.createInstance().apply {
