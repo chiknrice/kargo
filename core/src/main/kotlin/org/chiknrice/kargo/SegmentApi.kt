@@ -28,8 +28,8 @@ open abstract class Segment {
 
 }
 
-class SegmentProperty<T : Any> internal constructor(private val property: KProperty<*>,
-                                                    private val propertyCodec: Codec<T>) :
+class SegmentProperty<T : Any> internal constructor(internal val kProperty: KProperty<*>,
+                                                    private val codec: Codec<T>) :
         ReadWriteProperty<Segment, T?> {
 
     private var value: T? = null
@@ -46,13 +46,13 @@ class SegmentProperty<T : Any> internal constructor(private val property: KPrope
 
     fun decode(buffer: ByteBuffer) {
         internalIndex = buffer.arrayOffset() + buffer.position()
-        value = propertyCodec.decode(buffer)
+        value = codec.decode(buffer)
     }
 
     fun encode(buffer: ByteBuffer) {
         internalIndex = buffer.arrayOffset() + buffer.position()
-        value?.apply { propertyCodec.encode(value!!, buffer) }
-                ?: throw CodecException("Encoding null property [${property.name}]")
+        value?.apply { codec.encode(value!!, buffer) }
+                ?: throw CodecException("Encoding null property [${kProperty.name}]")
     }
 
 }
