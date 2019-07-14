@@ -45,7 +45,7 @@ interface WithEncodeOrWithDecodeDsl<T : Any, E, D, R> :
  * The contract of defining a configuration for a codec
  */
 interface CodecWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(supplyDefaultConfigBlock: SupplyDefaultConfigBlock<C>):
+    infix fun <C : Any> withConfig(configClass: KClass<C>):
             ConfigurableCodecDsl<T, C>
 }
 
@@ -59,7 +59,7 @@ typealias ConfigurableCodecDsl<T, C> =
  * The contract of defining a configuration for a codec filter
  */
 interface CodecFilterWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(supplyDefaultConfigBlock: SupplyDefaultConfigBlock<C>):
+    infix fun <C : Any> withConfig(configClass: KClass<C>):
             ConfigurableCodecFilterDsl<T, C>
 }
 

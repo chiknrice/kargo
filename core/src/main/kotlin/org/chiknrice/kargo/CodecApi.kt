@@ -110,11 +110,6 @@ typealias WrapCodecWithConfigurableFilterBlock<T, C> = (chain: Codec<T>, overrid
 typealias WrapCodecWithFilterBlock<T> = (chain: Codec<T>) -> Codec<T>
 
 /**
- * The contract of supplying a default configuration of type C
- */
-typealias SupplyDefaultConfigBlock<C> = () -> C
-
-/**
  * The contract of (possibly) overriding defaults of a configuration of type C
  */
 typealias OverrideConfigBlock<C> = C.() -> Unit

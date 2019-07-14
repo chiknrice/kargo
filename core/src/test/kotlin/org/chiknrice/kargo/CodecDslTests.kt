@@ -32,14 +32,13 @@ class CodecDslTests {
     @MockK(relaxed = true)
     private lateinit var mockBuffer: ByteBuffer
     private val testValue = Any()
-    private val testConfig = Any()
+    private val configArg = slot<Any>()
 
     @Test
     fun `A codec delegates to the defined encode and decode blocks`(
             @MockK mockEncode: EncodeBlock<Any>,
             @MockK mockDecode: DecodeBlock<Any>
     ) {
-
         every { mockEncode(testValue, mockBuffer) } just Runs
         every { mockDecode(mockBuffer) } returns testValue
 
@@ -63,138 +62,126 @@ class CodecDslTests {
     }
 
     @Test
-    fun `A configurable codec delegates to the defined encode and decode blocks with the supplied config`(
-            @MockK mockEncodeWithConfig: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecodeWithConfig: DecodeWithConfigBlock<Any, Any>,
-            @MockK mockSupplyDefaultConfig: SupplyDefaultConfigBlock<Any>,
-            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    fun `A codec defined either encoder or decoder first behaves the same`(
+            @MockK mockEncode: EncodeBlock<Any>,
+            @MockK mockDecode: DecodeBlock<Any>
     ) {
+        every { mockEncode(testValue, mockBuffer) } just Runs
+        every { mockDecode(mockBuffer) } returns testValue
 
-        every { mockSupplyDefaultConfig() } returns testConfig
-        every { testConfig.mockOverrideConfig() } just Runs
-        every { mockEncodeWithConfig(testValue, mockBuffer, testConfig) } just Runs
-        every { mockDecodeWithConfig(mockBuffer, testConfig) } returns testValue
+        val codec1 = (defineCodec<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode)()
+        val codec2 = (defineCodec<Any>() thatDecodesBy mockDecode andEncodesBy mockEncode)()
 
-        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
-        val codec = buildCodec(mockOverrideConfig)
+        codec1.encode(testValue, mockBuffer)
+        codec2.encode(testValue, mockBuffer)
+
+        verify(exactly = 2) { mockEncode(testValue, mockBuffer) }
+
+        val decode1 = codec1.decode(mockBuffer)
+        val decode2 = codec2.decode(mockBuffer)
+
+        assertThat(decode1).isSameAs(decode2)
+
+        verify(exactly = 2) { mockDecode(mockBuffer) }
+
+        confirmVerified(mockEncode, mockDecode)
+    }
+
+    @Test
+    fun `A configurable codec delegates to the defined encode and decode blocks with the same instance of the config class`(
+            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>
+    ) {
+        every { mockEncode(testValue, mockBuffer, capture(configArg)) } just Runs
+        every { mockDecode(mockBuffer, capture(configArg)) } returns testValue
+
+        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
+        val codec = buildCodec {}
 
         codec.encode(testValue, mockBuffer)
+        val encodeConfig = configArg.captured
 
         val result = codec.decode(mockBuffer)
+        val decodeConfig = configArg.captured
 
         assertThat(result).isSameAs(testValue)
 
-        verify(exactly = 1) { mockSupplyDefaultConfig() }
-        verify(exactly = 1) { testConfig.mockOverrideConfig() }
-        verify(exactly = 1) { mockEncodeWithConfig(testValue, mockBuffer, testConfig) }
-        verify(exactly = 1) { mockDecodeWithConfig(mockBuffer, testConfig) }
-        verifySequence {
-            mockSupplyDefaultConfig()
-            testConfig.mockOverrideConfig()
-            mockEncodeWithConfig(testValue, mockBuffer, testConfig)
-            mockDecodeWithConfig(mockBuffer, testConfig)
-        }
+        assertThat(encodeConfig).isSameAs(decodeConfig)
 
-        confirmVerified(mockSupplyDefaultConfig, mockOverrideConfig, mockEncodeWithConfig, mockDecodeWithConfig)
+        verify { mockEncode(testValue, mockBuffer, encodeConfig) }
+        verify { mockDecode(mockBuffer, decodeConfig) }
+
+        confirmVerified(mockEncode, mockDecode)
     }
 
     @Test
-    fun `Each call to build the codec would result in a call to supplyDefaultConfig block and overrideConfig block`(
-            @MockK mockEncodeWithConfig: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecodeWithConfig: DecodeWithConfigBlock<Any, Any>,
-            @MockK mockSupplyDefaultConfig: SupplyDefaultConfigBlock<Any>,
-            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    fun `A configurable codec defined either encoder or decoder first behaves the same but with each their different instance of config`(
+            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>
     ) {
-        every { mockSupplyDefaultConfig() } returns testConfig
-        every { testConfig.mockOverrideConfig() } just Runs
+        every { mockEncode(testValue, mockBuffer, capture(configArg)) } just Runs
+        every { mockDecode(mockBuffer, capture(configArg)) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withConfig mockSupplyDefaultConfig thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
-        buildCodec(mockOverrideConfig)
-
-        verify(exactly = 1) { mockSupplyDefaultConfig() }
-        verify(exactly = 1) { testConfig.mockOverrideConfig() }
-
-        buildCodec(mockOverrideConfig)
-
-        verify(exactly = 2) { mockSupplyDefaultConfig() }
-        verify(exactly = 2) { testConfig.mockOverrideConfig() }
-
-        verifySequence {
-            mockSupplyDefaultConfig()
-            testConfig.mockOverrideConfig()
-            mockSupplyDefaultConfig()
-            testConfig.mockOverrideConfig()
-        }
-
-        confirmVerified(mockSupplyDefaultConfig, mockOverrideConfig, mockEncodeWithConfig, mockDecodeWithConfig)
-    }
-
-
-    @Test
-    fun `If supplyDefaultConfig returns different objects for each call, each codec created would be associated with different config`(
-            @MockK mockEncodeWithConfig: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecodeWithConfig: DecodeWithConfigBlock<Any, Any>
-    ) {
-        val configArg = slot<Any>()
-
-        every { mockEncodeWithConfig(testValue, mockBuffer, capture(configArg)) } just Runs
-        every { mockDecodeWithConfig(mockBuffer, capture(configArg)) } returns testValue
-
-        val buildCodec = defineCodec<Any>() withConfig { Any() } thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
-
-        val codec1 = buildCodec {}
-        val codec2 = buildCodec {}
+        val codec1 = (defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode) {}
+        val codec2 = (defineCodec<Any>() withConfig Any::class thatDecodesBy mockDecode andEncodesBy mockEncode) {}
 
         codec1.encode(testValue, mockBuffer)
-        val codec1EncodeConfig = configArg.captured
-
-        codec1.decode(mockBuffer)
-        val codec1DecodeConfig = configArg.captured
-
+        val encode1Config = configArg.captured
         codec2.encode(testValue, mockBuffer)
-        val codec2EncodeConfig = configArg.captured
+        val encode2Config = configArg.captured
 
-        codec2.decode(mockBuffer)
-        val codec2DecodeConfig = configArg.captured
+        verify(exactly = 1) { mockEncode(testValue, mockBuffer, encode1Config) }
+        verify(exactly = 1) { mockEncode(testValue, mockBuffer, encode2Config) }
 
-        assertThat(codec1EncodeConfig).isSameAs(codec1DecodeConfig)
-        assertThat(codec1EncodeConfig).isNotSameAs(codec2EncodeConfig)
-        assertThat(codec1DecodeConfig).isNotSameAs(codec2DecodeConfig)
-        assertThat(codec2EncodeConfig).isSameAs(codec2DecodeConfig)
+        assertThat(encode1Config).isNotSameAs(encode2Config)
+
+        val decode1 = codec1.decode(mockBuffer)
+        val decode1Config = configArg.captured
+        val decode2 = codec2.decode(mockBuffer)
+        val decode2Config = configArg.captured
+
+        assertThat(decode1).isSameAs(decode2)
+
+        verify(exactly = 1) { mockDecode(mockBuffer, decode1Config) }
+        verify(exactly = 1) { mockDecode(mockBuffer, decode2Config) }
+
+        assertThat(decode1Config).isNotSameAs(decode2Config)
+
+        assertThat(encode1Config).isSameAs(decode1Config)
+        assertThat(encode2Config).isSameAs(decode2Config)
+
+        confirmVerified(mockEncode, mockDecode)
     }
 
-    @Test
-    fun `If supplyDefaultConfig returns the same object for each call, different codecs created would be sharing the same config`(
-            @MockK mockEncodeWithConfig: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecodeWithConfig: DecodeWithConfigBlock<Any, Any>
-    ) {
-        val configArg = slot<Any>()
-
-        every { mockEncodeWithConfig(testValue, mockBuffer, capture(configArg)) } just Runs
-        every { mockDecodeWithConfig(mockBuffer, capture(configArg)) } returns testValue
-
-        val buildCodec = defineCodec<Any>() withConfig { testConfig } thatEncodesBy mockEncodeWithConfig andDecodesBy mockDecodeWithConfig
-
-        val codec1 = buildCodec {}
-        val codec2 = buildCodec {}
-
-        codec1.encode(testValue, mockBuffer)
-        val codec1EncodeConfig = configArg.captured
-
-        codec1.decode(mockBuffer)
-        val codec1DecodeConfig = configArg.captured
-
-        codec2.encode(testValue, mockBuffer)
-        val codec2EncodeConfig = configArg.captured
-
-        codec2.decode(mockBuffer)
-        val codec2DecodeConfig = configArg.captured
-
-        assertThat(codec1EncodeConfig).isSameAs(testConfig)
-        assertThat(codec1DecodeConfig).isSameAs(testConfig)
-        assertThat(codec2EncodeConfig).isSameAs(testConfig)
-        assertThat(codec2DecodeConfig).isSameAs(testConfig)
-    }
+//    @Test
+//    fun `Each call to build the codec would result in a call to supplyDefaultConfig block and overrideConfig block`(
+//            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
+//            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>,
+//            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+//    ) {
+//        every { Any::class.createInstance() } returns testConfig
+//        every { testConfig.mockOverrideConfig() } just Runs
+//
+//        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
+//        buildCodec(mockOverrideConfig)
+//
+//        verify(exactly = 1) { Any::class.createInstance() }
+//        verify(exactly = 1) { testConfig.mockOverrideConfig() }
+//
+//        buildCodec(mockOverrideConfig)
+//
+//        verify(exactly = 2) { Any::class.createInstance() }
+//        verify(exactly = 2) { testConfig.mockOverrideConfig() }
+//
+//        verifySequence {
+//            Any::class.createInstance()
+//            testConfig.mockOverrideConfig()
+//            Any::class.createInstance()
+//            testConfig.mockOverrideConfig()
+//        }
+//
+//        confirmVerified(Any::class, mockOverrideConfig, mockEncode, mockDecode)
+//    }
 
 }
 
