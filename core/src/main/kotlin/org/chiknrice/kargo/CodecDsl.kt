@@ -199,7 +199,7 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
 
         abstract fun buildCodec(): Codec<T>
 
-        operator fun provideDelegate(thisRef: Segment, property: KProperty<*>): ReadWriteProperty<Segment, T?> {
+        override operator fun provideDelegate(thisRef: Segment, property: KProperty<*>): ReadWriteProperty<Segment, T?> {
             // property codecs scope is only one per class-property - while segment property is one per segment instance
             val codec = S.propertyCodecs.computeIfAbsent(PropertyContext(thisRef::class, property)) {
                 buildCodec()

@@ -270,8 +270,10 @@ class FilterDslTests {
         every { mockEncode(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockDecode(mockBuffer, capture(configArg), mockCodec) } returns testValue
 
-        val codec1 = (defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode)(mockCodec) {}
-        val codec2 = (defineFilter<Any>() withConfig Any::class thatDecodesBy mockDecode andEncodesBy mockEncode)(mockCodec) {}
+        val codec1 = (defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode)(
+                mockCodec) {}
+        val codec2 = (defineFilter<Any>() withConfig Any::class thatDecodesBy mockDecode andEncodesBy mockEncode)(
+                mockCodec) {}
 
         codec1.encode(testValue, mockBuffer)
         val encode1Config = configArg.captured
@@ -319,10 +321,15 @@ class FilterDslTests {
         confirmVerified(mockOverrideConfig)
     }
 
+}
+
+@ExtendWith(MockKExtension::class)
+class SegmentCodecDslTests {
+
     @Test
     @Disabled
-    fun `Subsequent filters wraps the previous filter`() {
-        TODO("implement this in segment property tests")
+    fun `Segment codec delegates to the defined encode and decode blocks passing an instance of the segment class`() {
+        TODO("implement this")
     }
 
 }

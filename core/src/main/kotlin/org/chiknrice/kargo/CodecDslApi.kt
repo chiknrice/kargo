@@ -18,7 +18,9 @@
 
 package org.chiknrice.kargo
 
+import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
 
 /**
  * The contract of what can be done after defineCodec function
@@ -114,9 +116,16 @@ interface WrappedWithOrConfigWithDsl<T : Any, C : Any> : WrappedWithDsl<T> {
 }
 
 /**
+ * The contract of providing a property delegate
+ */
+interface DelegateProvider<T : Any> {
+    operator fun provideDelegate(thisRef: Segment, property: KProperty<*>): ReadWriteProperty<Segment, T?>
+}
+
+/**
  * The contract of providing the option to filter with or without a configuration
  */
-interface WrappedWithDsl<T : Any> {
+interface WrappedWithDsl<T : Any> : DelegateProvider<T> {
     infix fun wrappedWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
     infix fun <C : Any> wrappedWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
             ThenWithOrWithConfigDsl<T, C>
@@ -132,7 +141,7 @@ interface ThenWithOrWithConfigDsl<T : Any, C : Any> : ThenWithDsl<T> {
 /**
  * The contract of providing the option to further filter with or without a configuration
  */
-interface ThenWithDsl<T : Any> {
+interface ThenWithDsl<T : Any> : DelegateProvider<T> {
     infix fun thenWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
     infix fun <C : Any> thenWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
             ThenWithOrWithConfigDsl<T, C>
