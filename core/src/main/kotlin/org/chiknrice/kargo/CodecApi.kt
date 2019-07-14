@@ -113,3 +113,10 @@ typealias WrapCodecWithFilterBlock<T> = (chain: Codec<T>) -> Codec<T>
  * The contract of (possibly) overriding defaults of a configuration of type C
  */
 typealias OverrideConfigBlock<C> = C.() -> Unit
+
+/**
+ * Generic exception to represent any exceptional cases during encoding or decoding
+ */
+class CodecException : RuntimeException {
+    constructor(message: String) : super(message)
+}
