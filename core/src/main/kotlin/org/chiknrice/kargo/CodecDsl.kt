@@ -248,6 +248,7 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
                 } andDecodesBy { buffer ->
                     segmentClass.createInstance().apply {
                         decodeSegmentBlock(SegmentProperties(this.properties), buffer, this)
+                        if (buffer.hasRemaining()) throw CodecException("Buffer still has remaining bytes")
                     }
                 }
     }
