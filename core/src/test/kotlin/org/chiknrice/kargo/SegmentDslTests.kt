@@ -22,6 +22,7 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
@@ -180,6 +181,17 @@ class SegmentPropertyCodecTests {
     }
 
     @Test
+    fun `Encoding a null property results in CodecException`() {
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec
+        }
+
+        val x = X()
+        assertThatThrownBy { x.properties[0].encode(mockBuffer) }.isExactlyInstanceOf(CodecException::class.java)
+                .hasMessage("Encoding null property [a]")
+    }
+
+    @Test
     fun `Property decode method delegates to codec and sets the decoded value as the property's current value`() {
         class X : Segment() {
             var a by defineProperty<Any>() using mockBuildCodec
@@ -188,7 +200,41 @@ class SegmentPropertyCodecTests {
         val x = X()
         assertThat(x.a).isNull()
         x.properties[0].decode(mockBuffer)
-        assertThat(x.a).isEqualTo(testValue)
+        assertThat(x.a).isSameAs(testValue)
+
+        verify(exactly = 1) { mockCodec.decode(mockBuffer) }
+
+        confirmVerified(mockCodec)
+    }
+
+    @Test
+    fun `A val property can still have a value after decoding`() {
+        class X : Segment() {
+            val a by defineProperty<Any>() using mockBuildCodec
+        }
+
+        val x = X()
+        assertThat(x.a).isNull()
+        x.properties[0].decode(mockBuffer)
+        assertThat(x.a).isSameAs(testValue)
+
+        verify(exactly = 1) { mockCodec.decode(mockBuffer) }
+
+        confirmVerified(mockCodec)
+    }
+
+    @Test
+    fun `Decoding a property overrides its current value`() {
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec
+        }
+
+        val x = X()
+        x.a = Any()
+        assertThat(x.a).isNotNull
+        assertThat(x.a).isNotSameAs(testValue)
+        x.properties[0].decode(mockBuffer)
+        assertThat(x.a).isSameAs(testValue)
 
         verify(exactly = 1) { mockCodec.decode(mockBuffer) }
 
@@ -231,24 +277,5 @@ class SegmentPropertyCodecTests {
 
         assertThat(configArg.captured.length).isEqualTo(10)
     }
-
-    @Test
-    @Disabled
-    fun `A val property can still have a value after decoding`() {
-
-    }
-
-    @Test
-    @Disabled
-    fun `Decoding a property overrides its current value`() {
-
-    }
-
-    @Test
-    @Disabled
-    fun `Encoding a null property results in CodecException`() {
-
-    }
-
 
 }
