@@ -44,7 +44,7 @@ class SegmentPropertyDefinitionTests {
     }
 
     @BeforeEach
-    fun resetRecordedInteractions() {
+    fun resetRecordedMockInteractions() {
         clearMocks(mockBuildCodec, answers = false, childMocks = false, exclusionRules = false)
     }
 
@@ -163,6 +163,11 @@ class SegmentPropertyCodecTests {
         every { mockBuildCodec() } returns mockCodec
         every { mockCodec.encode(testValue, mockBuffer) } just Runs
         every { mockCodec.decode(mockBuffer) } returns testValue
+    }
+
+    @BeforeEach
+    fun resetRecordedMockInteractions() {
+        clearMocks(mockBuildCodec, mockCodec, answers = false, childMocks = false, exclusionRules = false)
     }
 
     @Test
