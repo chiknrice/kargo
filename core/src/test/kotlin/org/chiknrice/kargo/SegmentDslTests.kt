@@ -49,6 +49,23 @@ class SegmentPropertyDefinitionTests {
     }
 
     @Test
+    fun `Segment properties should be delegated or else it won't be considered a segment property`() {
+        class X : Segment() {
+            var a = defineProperty<Any>() using mockBuildCodec
+        }
+
+        val x = X()
+        assertThat(x.properties).isEmpty()
+
+        class Y : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec
+        }
+
+        val y = Y()
+        assertThat(y.properties).isNotEmpty
+    }
+
+    @Test
     fun `Segments properties can be val or var and the value defaults to null`() {
         class X : Segment() {
             val a by defineProperty<Any>() using mockBuildCodec
@@ -281,6 +298,93 @@ class SegmentPropertyCodecTests {
         y.properties[0].encode(mockBuffer)
 
         assertThat(configArg.captured.length).isEqualTo(10)
+    }
+
+}
+
+@ExtendWith(MockKExtension::class)
+class SegmentPropertyCodecFilterTests {
+
+    @MockK
+    private lateinit var mockCodec: Codec<Any>
+    @MockK
+    private lateinit var mockFilteredCodec: Codec<Any>
+    @MockK
+    private lateinit var mockBuildCodec: BuildCodecBlock<Any>
+    @MockK
+    private lateinit var mockWrapCodec: WrapCodecWithFilterBlock<Any>
+    private val codecArg = slot<Codec<Any>>()
+    @MockK(relaxed = true)
+    private lateinit var mockBuffer: ByteBuffer
+    private val testValue = Any()
+
+    @BeforeAll
+    fun setupMocks() {
+        every { mockBuildCodec() } returns mockCodec
+        every { mockWrapCodec(capture(codecArg)) } returns mockFilteredCodec
+        every { mockCodec.encode(testValue, mockBuffer) } just Runs
+        every { mockCodec.decode(mockBuffer) } returns testValue
+        every { mockFilteredCodec.encode(testValue, mockBuffer) } just Runs
+        every { mockFilteredCodec.decode(mockBuffer) } returns testValue
+    }
+
+    @BeforeEach
+    fun resetRecordedMockInteractions() {
+        clearMocks(mockBuildCodec, mockWrapCodec, mockCodec, mockFilteredCodec, answers = false, childMocks = false,
+                exclusionRules = false)
+    }
+
+    @Test
+    fun `Property encode method delegates to the filter that wraps the codec passing the current value`() {
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec
+            var b by defineProperty<Any>() using mockBuildCodec wrappedWith mockWrapCodec
+        }
+
+        val x = X()
+
+        verify { mockWrapCodec(mockCodec) }
+
+        x.a = testValue
+        x.b = testValue
+
+        x.properties[0].encode(mockBuffer)
+
+        verify(exactly = 1) { mockCodec.encode(testValue, mockBuffer) }
+        verify(exactly = 0) { mockFilteredCodec.encode(testValue, mockBuffer) }
+
+        x.properties[1].encode(mockBuffer)
+
+        verify(exactly = 1) { mockCodec.encode(testValue, mockBuffer) }
+        verify(exactly = 1) { mockFilteredCodec.encode(testValue, mockBuffer) }
+
+        confirmVerified(mockWrapCodec)
+    }
+
+    @Test
+    fun `The last filter wraps the previous one`(
+            @MockK lastMockWrapCodec: WrapCodecWithFilterBlock<Any>,
+            @MockK lastMockFilteredCodec: Codec<Any>
+    ) {
+        every { lastMockWrapCodec(mockFilteredCodec) } returns lastMockFilteredCodec
+        every { lastMockFilteredCodec.encode(testValue, mockBuffer) } just Runs
+
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec wrappedWith mockWrapCodec thenWith lastMockWrapCodec
+        }
+
+        val x = X()
+        x.a = testValue
+
+        verify { lastMockWrapCodec(mockFilteredCodec) }
+
+        x.properties[0].encode(mockBuffer)
+
+        verify(exactly = 0) { mockCodec.encode(testValue, mockBuffer) }
+        verify(exactly = 0) { mockFilteredCodec.encode(testValue, mockBuffer) }
+        verify(exactly = 1) { lastMockFilteredCodec.encode(testValue, mockBuffer) }
+
+        confirmVerified()
     }
 
 }

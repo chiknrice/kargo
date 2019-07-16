@@ -328,7 +328,19 @@ class SegmentCodecDslTests {
 
     @Test
     @Disabled
+    fun `Segment codec results in exception if properties are defined by assignment NOT by delegation`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
     fun `Segment codec delegates to the defined encode and decode blocks passing an instance of the segment class`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
+    fun `Root segment codec resets all values prior to decoding`() {
         TODO("implement this")
     }
 
