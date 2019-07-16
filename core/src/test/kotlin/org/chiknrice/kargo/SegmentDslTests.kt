@@ -358,7 +358,7 @@ class SegmentPropertyCodecFilterTests {
         verify(exactly = 1) { mockCodec.encode(testValue, mockBuffer) }
         verify(exactly = 1) { mockFilteredCodec.encode(testValue, mockBuffer) }
 
-        confirmVerified(mockWrapCodec)
+        confirmVerified(mockWrapCodec, mockFilteredCodec)
     }
 
     @Test
@@ -384,7 +384,64 @@ class SegmentPropertyCodecFilterTests {
         verify(exactly = 0) { mockFilteredCodec.encode(testValue, mockBuffer) }
         verify(exactly = 1) { lastMockFilteredCodec.encode(testValue, mockBuffer) }
 
-        confirmVerified()
+        confirmVerified(mockCodec, mockFilteredCodec, lastMockFilteredCodec)
+    }
+
+    @Test
+    fun `Configuration overrides allow configuration specified when codec filter was defined to be modified`(
+            @MockK mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: FilterDecodeWithConfigBlock<Any, Any>
+    ) {
+        class Config {
+            var length: Int = 4
+        }
+
+        val configArg = slot<Config>()
+
+        every { mockEncode(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
+        every { mockEncode(testValue, mockBuffer, capture(configArg), mockFilteredCodec) } just Runs
+
+        val lastCodecWrapper = defineFilter<Any>() withConfig Config::class thatEncodesBy mockEncode andDecodesBy mockDecode
+
+        class W : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec wrappedWith lastCodecWrapper
+        }
+
+        val w = W()
+        w.a = testValue
+        w.properties[0].encode(mockBuffer)
+
+        assertThat(configArg.captured.length).isEqualTo(4)
+
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec wrappedWith mockWrapCodec thenWith lastCodecWrapper
+        }
+
+        val x = X()
+        x.a = testValue
+        x.properties[0].encode(mockBuffer)
+
+        assertThat(configArg.captured.length).isEqualTo(4)
+
+        class Y : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec wrappedWith lastCodecWrapper withConfig { length = 10 }
+        }
+
+        val y = Y()
+        y.a = testValue
+        y.properties[0].encode(mockBuffer)
+
+        assertThat(configArg.captured.length).isEqualTo(10)
+
+        class Z : Segment() {
+            var a by defineProperty<Any>() using mockBuildCodec wrappedWith mockWrapCodec thenWith lastCodecWrapper withConfig { length = 10 }
+        }
+
+        val z = Z()
+        z.a = testValue
+        z.properties[0].encode(mockBuffer)
+
+        assertThat(configArg.captured.length).isEqualTo(10)
     }
 
 }
