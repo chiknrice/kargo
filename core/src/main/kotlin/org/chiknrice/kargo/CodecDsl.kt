@@ -46,7 +46,7 @@ internal class C<T : Any> : DefineCodecDsl<T> {
         ) : AndDecodesByDsl<T, DecodeWithConfigBlock<T, C>, BuildConfigurableCodecBlock<T, C>> {
             override infix fun andDecodesBy(decodeBlock: DecodeWithConfigBlock<T, C>):
                     BuildConfigurableCodecBlock<T, C> = { override ->
-                configClass.createInstance().apply(override).let { config ->
+                configClass.createConfigInstance().apply(override).let { config ->
                     ValueCodec({ value, buffer -> encodeBlock(value, buffer, config) },
                             { buffer -> decodeBlock(buffer, config) })
                 }
@@ -58,7 +58,7 @@ internal class C<T : Any> : DefineCodecDsl<T> {
         ) : AndEncodesByDsl<T, EncodeWithConfigBlock<T, C>, BuildConfigurableCodecBlock<T, C>> {
             override infix fun andEncodesBy(encodeBlock: EncodeWithConfigBlock<T, C>):
                     BuildConfigurableCodecBlock<T, C> = { override ->
-                configClass.createInstance().apply(override).let { config ->
+                configClass.createConfigInstance().apply(override).let { config ->
                     ValueCodec({ value, buffer -> encodeBlock(value, buffer, config) },
                             { buffer -> decodeBlock(buffer, config) })
                 }
@@ -100,7 +100,7 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
         ) : AndDecodesByDsl<T, FilterDecodeWithConfigBlock<T, C>, WrapCodecWithConfigurableFilterBlock<T, C>> {
             override infix fun andDecodesBy(filterDecodeBlock: FilterDecodeWithConfigBlock<T, C>):
                     WrapCodecWithConfigurableFilterBlock<T, C> = { chain, override ->
-                configClass.createInstance().apply(override).let { config ->
+                configClass.createConfigInstance().apply(override).let { config ->
                     ValueCodec({ value, buffer ->
                         filterEncodeBlock(value, buffer, config, chain)
                     }, { buffer ->
@@ -115,7 +115,7 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
         ) : AndEncodesByDsl<T, FilterEncodeWithConfigBlock<T, C>, WrapCodecWithConfigurableFilterBlock<T, C>> {
             override infix fun andEncodesBy(filterEncodeBlock: FilterEncodeWithConfigBlock<T, C>):
                     WrapCodecWithConfigurableFilterBlock<T, C> = { chain, override ->
-                configClass.createInstance().apply(override).let { config ->
+                configClass.createConfigInstance().apply(override).let { config ->
                     ValueCodec({ value, buffer ->
                         filterEncodeBlock(value, buffer, config, chain)
                     }, { buffer ->
@@ -144,6 +144,11 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
         }
     }
 }
+
+/**
+ * PropertyContext defines the coordinates of a particular property (e.g. in which class the property belongs to)
+ */
+internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
 
 internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     override infix fun using(buildCodecBlock: BuildCodecBlock<T>) = SC(buildCodecBlock)
@@ -179,11 +184,6 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     }
 
     /**
-     * PropertyContext defines the coordinates of a particular property (e.g. in which class the property belongs to)
-     */
-    data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
-
-    /**
      * A common class which provides a SegmentProperty in any scenario which is possible to terminate a
      * defineSegmentProperty statement
      */
@@ -211,7 +211,7 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
                     }
                 }
             }
-            return SegmentProperty(property, propertyCodecs[propertyContext] as Codec<T>).also {
+            return SegmentProperty(propertyContext, propertyCodecs[propertyContext] as Codec<T>).also {
                 thisRef.properties.add(it)
             }
         }
@@ -246,12 +246,24 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
                 C<T>() thatEncodesBy { value, buffer ->
                     encodeSegmentBlock(value, SegmentProperties(value.properties), buffer)
                 } andDecodesBy { buffer ->
-                    segmentClass.createInstance().apply {
+                    segmentClass.createSegmentInstance().apply {
                         decodeSegmentBlock(SegmentProperties(this.properties), buffer, this)
                         if (buffer.hasRemaining()) throw CodecException("Buffer still has remaining bytes")
                     }
                 }
     }
 
+}
+
+internal fun <T : Any> KClass<T>.createConfigInstance() = try {
+    this.createInstance()
+} catch (e: Exception) {
+    throw CodecConfigurationException("Failed to create configuration class instance: ${this.simpleName}")
+}
+
+internal fun <T : Segment> KClass<T>.createSegmentInstance() = try {
+    this.createInstance()
+} catch (e: Exception) {
+    throw CodecConfigurationException("Failed to create segment class instance: ${this.simpleName}")
 }
 

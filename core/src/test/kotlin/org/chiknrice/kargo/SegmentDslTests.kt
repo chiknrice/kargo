@@ -147,9 +147,9 @@ class SegmentPropertyDefinitionTests {
         val x = X()
 
         assertThat(x.properties.size).isEqualTo(3)
-        assertThat(x.properties[0].kProperty.name).isEqualTo("a")
-        assertThat(x.properties[1].kProperty.name).isEqualTo("b")
-        assertThat(x.properties[2].kProperty.name).isEqualTo("c")
+        assertThat(x.properties[0].context.kProperty.name).isEqualTo("a")
+        assertThat(x.properties[1].context.kProperty.name).isEqualTo("b")
+        assertThat(x.properties[2].context.kProperty.name).isEqualTo("c")
 
         verify(exactly = 3) { mockBuildCodec() }
 
@@ -210,7 +210,7 @@ class SegmentPropertyCodecTests {
 
         val x = X()
         assertThatThrownBy { x.properties[0].encode(mockBuffer) }.isExactlyInstanceOf(CodecException::class.java)
-                .hasMessage("Encoding null property [a]")
+                .hasMessage("Encoding null property [X.a]")
     }
 
     @Test

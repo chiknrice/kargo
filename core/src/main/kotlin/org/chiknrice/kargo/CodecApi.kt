@@ -119,4 +119,9 @@ typealias OverrideConfigBlock<C> = C.() -> Unit
  */
 class CodecException : RuntimeException {
     constructor(message: String) : super(message)
+    constructor(message: String, cause: Throwable) : super(message, cause)
+}
+
+class CodecConfigurationException : RuntimeException {
+    constructor(message: String?) : super(message)
 }

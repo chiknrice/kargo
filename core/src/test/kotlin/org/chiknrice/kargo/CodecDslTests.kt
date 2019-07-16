@@ -22,6 +22,7 @@ import io.mockk.*
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -86,6 +87,18 @@ class CodecDslTests {
         verify(exactly = 2) { mockDecode(mockBuffer) }
 
         confirmVerified(mockEncode, mockDecode)
+    }
+
+    @Test
+    fun `A configuration class without a default constructor results in exception`(
+            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
+            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>
+    ) {
+        class X(var a: Any)
+
+        val buildCodec = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncode andDecodesBy mockDecode
+        assertThatThrownBy { buildCodec {} }.isExactlyInstanceOf(CodecConfigurationException::class.java)
+                .hasMessage("Failed to create configuration class instance: X")
     }
 
     @Test
