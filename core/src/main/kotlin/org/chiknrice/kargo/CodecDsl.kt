@@ -243,6 +243,10 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
     abstract class BuildCodecBlockBuilder<T : Segment> {
         fun createBuildCodecBlock(segmentClass: KClass<T>, encodeSegmentBlock: EncodeSegmentBlock<T>,
                                   decodeSegmentBlock: DecodeSegmentBlock<T>) =
+                // TODO: validate segment class for:
+                //  - default constructor
+                //  - must have at least 1 segment property
+                //  - must not have a SegmentProperty typed property (wrong assignment '=' instead of 'by')
                 C<T>() thatEncodesBy { value, buffer ->
                     encodeSegmentBlock(value, SegmentProperties(value.properties), buffer)
                 } andDecodesBy { buffer ->
@@ -258,12 +262,12 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
 internal fun <T : Any> KClass<T>.createConfigInstance() = try {
     this.createInstance()
 } catch (e: Exception) {
-    throw CodecConfigurationException("Failed to create configuration class instance: ${this.simpleName}")
+    throw CodecConfigurationException("Failed to create configuration class instance: ${this.simpleName}", e)
 }
 
 internal fun <T : Segment> KClass<T>.createSegmentInstance() = try {
     this.createInstance()
 } catch (e: Exception) {
-    throw CodecConfigurationException("Failed to create segment class instance: ${this.simpleName}")
+    throw CodecConfigurationException("Failed to create segment class instance: ${this.simpleName}", e)
 }
 

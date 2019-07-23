@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.nio.ByteBuffer
+import kotlin.properties.ReadWriteProperty
 
 @ExtendWith(MockKExtension::class)
 class CodecDslTests {
@@ -339,9 +340,59 @@ class FilterDslTests {
 @ExtendWith(MockKExtension::class)
 class SegmentCodecDslTests {
 
+    @MockK(relaxed = true)
+    private lateinit var mockBuffer: ByteBuffer
+    @MockK(relaxed = true)
+    private lateinit var encodeBlock: EncodeSegmentBlock<Any>
+    @MockK(relaxed = true)
+    private lateinit var decodeBlock: DecodeSegmentBlock<Any>
+
     @Test
     @Disabled
     fun `Segment codec results in exception if properties are defined by assignment NOT by delegation`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled("figure out best way to validate the class as early as defining a segment codec")
+    fun `Defining a segment codec for a segment class without a default constructor results in exception`(
+            @MockK(relaxed = true) propertyDelegate: ReadWriteProperty<Segment, Any>
+    ) {
+        class X : Segment() {
+            var a: Any by propertyDelegate
+        }
+        defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+
+        class Y(var a: Any) : Segment()
+        assertThatThrownBy { defineSegmentCodec<Y>() thatEncodesBy encodeBlock andDecodesBy decodeBlock }
+                .isExactlyInstanceOf(CodecConfigurationException::class.java)
+                .hasMessage("Segment class [Y] doesn't have any default constructor")
+    }
+
+    @Test
+    @Disabled("TODO: implement this")
+    fun `Defining a segment codec for a segment class without any segment properties results in exception`(
+            @MockK(relaxed = true) propertyDelegate: ReadWriteProperty<Segment, Any>
+    ) {
+//        every { mockBuildCodec() } returns mockCodec
+
+        class X : Segment() {
+            var a = Any()
+            var b = propertyDelegate
+            // mock delegates seems to be incompatible with createInstance()!!
+            //var c by propertyDelegate
+        }
+
+        // somehow this has a problem if the class is inside the method
+        //X::class.createInstance()
+
+//        val buildCodec = defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+//        buildCodec().decode(mockBuffer)
+    }
+
+    @Test
+    @Disabled("implement validation of wrong assignment '=' instead of 'by'")
+    fun `Defining a segment codec for a segment class with a SegmentPropert property type results in exception`() {
         TODO("implement this")
     }
 
@@ -352,7 +403,7 @@ class SegmentCodecDslTests {
     }
 
     @Test
-    @Disabled
+    @Disabled("actually not needed as segment instances are always created")
     fun `Root segment codec resets all values prior to decoding`() {
         TODO("implement this")
     }

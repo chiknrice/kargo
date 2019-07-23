@@ -203,7 +203,7 @@ class SegmentPropertyCodecTests {
     }
 
     @Test
-    fun `Encoding a null property results in CodecException`() {
+    fun `Property encode method throws CodecException if property value is null`() {
         class X : Segment() {
             var a by defineProperty<Any>() using mockBuildCodec
         }
@@ -246,6 +246,8 @@ class SegmentPropertyCodecTests {
     }
 
     @Test
+    // TODO: decommission this once segment codec has been implemented and tested because decoding always happens
+    //   against a newly created segment class and all segment property values are null initially
     fun `Decoding a property overrides its current value`() {
         class X : Segment() {
             var a by defineProperty<Any>() using mockBuildCodec
@@ -261,6 +263,33 @@ class SegmentPropertyCodecTests {
         verify(exactly = 1) { mockCodec.decode(mockBuffer) }
 
         confirmVerified(mockCodec)
+    }
+
+    @Test
+    fun `Property codec wraps any exception thrown by the underlying codec with CodecException`(
+            @MockK mockBuildExceptionCodec: BuildCodecBlock<Any>,
+            @MockK exceptionThrowingCodec: Codec<Any>
+    ) {
+        class SomeRandomException : Exception()
+        every { mockBuildExceptionCodec() } returns exceptionThrowingCodec
+        every { exceptionThrowingCodec.encode(testValue, mockBuffer) } throws SomeRandomException()
+        every { exceptionThrowingCodec.decode(mockBuffer) } throws SomeRandomException()
+
+        class X : Segment() {
+            var a by defineProperty<Any>() using mockBuildExceptionCodec
+        }
+
+        val x = X()
+        x.a = testValue
+        assertThatThrownBy { x.properties[0].encode(mockBuffer) }
+                .isExactlyInstanceOf(CodecException::class.java)
+                .hasMessage("Error encoding [X.a]")
+                .hasCauseExactlyInstanceOf(SomeRandomException::class.java)
+
+        assertThatThrownBy { x.properties[0].decode(mockBuffer) }
+                .isExactlyInstanceOf(CodecException::class.java)
+                .hasMessage("Error decoding [X.a]")
+                .hasCauseExactlyInstanceOf(SomeRandomException::class.java)
     }
 
     @Test
