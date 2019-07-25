@@ -22,7 +22,8 @@ import java.nio.ByteBuffer
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
-import kotlin.reflect.full.createInstance
+import kotlin.reflect.KTypeProjection
+import kotlin.reflect.full.*
 
 internal class ValueCodec<T : Any>(private val encodeBlock: EncodeBlock<T>, private val decodeBlock: DecodeBlock<T>) :
         Codec<T> {
@@ -242,19 +243,31 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
 
     abstract class BuildCodecBlockBuilder<T : Segment> {
         fun createBuildCodecBlock(segmentClass: KClass<T>, encodeSegmentBlock: EncodeSegmentBlock<T>,
-                                  decodeSegmentBlock: DecodeSegmentBlock<T>) =
-                // TODO: validate segment class for:
-                //  - default constructor
-                //  - must have at least 1 segment property
-                //  - must not have a SegmentProperty typed property (wrong assignment '=' instead of 'by')
-                C<T>() thatEncodesBy { value, buffer ->
-                    encodeSegmentBlock(value, SegmentProperties(value.properties), buffer)
-                } andDecodesBy { buffer ->
-                    segmentClass.createSegmentInstance().apply {
-                        decodeSegmentBlock(SegmentProperties(this.properties), buffer, this)
-                        if (buffer.hasRemaining()) throw CodecException("Buffer still has remaining bytes")
-                    }
+                                  decodeSegmentBlock: DecodeSegmentBlock<T>): BuildCodecBlock<T> {
+            validate(segmentClass)
+            return C<T>() thatEncodesBy { value, buffer ->
+                encodeSegmentBlock(value, SegmentProperties(value.properties), buffer)
+            } andDecodesBy { buffer ->
+                segmentClass.createSegmentInstance().apply {
+                    decodeSegmentBlock(SegmentProperties(this.properties), buffer, this)
+                    if (buffer.hasRemaining()) throw CodecException("Buffer still has remaining bytes")
                 }
+            }
+        }
+
+        private fun validate(segmentClass: KClass<T>) {
+            val instance = segmentClass.createSegmentInstance()
+            segmentClass.memberProperties.filter {
+                it.returnType.isSubtypeOf(DelegateProvider::class.createType(
+                        listOf(KTypeProjection.invariant(Any::class.starProjectedType))))
+            }.map { it.name }.toList().also {
+                if (it.isNotEmpty()) throw CodecConfigurationException("Properties are incorrectly assigned: $it")
+            }
+            if (instance.properties.isEmpty()) {
+                throw CodecConfigurationException(
+                        "Segment class [${segmentClass.simpleName}] is required to have a segment property")
+            }
+        }
     }
 
 }
