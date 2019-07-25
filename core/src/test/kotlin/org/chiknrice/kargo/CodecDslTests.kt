@@ -352,6 +352,8 @@ class SegmentCodecDslTests {
     }
 
     @MockK(relaxed = true)
+    private lateinit var mockBuffer: ByteBuffer
+    @MockK(relaxed = true)
     private lateinit var encodeBlock: EncodeSegmentBlock<Any>
     @MockK(relaxed = true)
     private lateinit var decodeBlock: DecodeSegmentBlock<Any>
@@ -402,9 +404,23 @@ class SegmentCodecDslTests {
     }
 
     @Test
-    @Disabled
     fun `Segment codec delegates to the defined encode and decode blocks passing an instance of the segment class`() {
-        TODO("implement this")
+        class X : Segment() {
+            var a by defineProperty<Any>() using staticMockBuildCodec
+        }
+
+        val buildCodec = defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+
+        val segmentCodec = buildCodec()
+        val testSegment = X()
+        segmentCodec.encode(testSegment, mockBuffer)
+
+        val decodedSegment = segmentCodec.decode(mockBuffer)
+
+        verify { encodeBlock(testSegment, any(), mockBuffer) }
+        verify { decodeBlock(any(), mockBuffer, decodedSegment) }
+
+        confirmVerified(encodeBlock, decodeBlock)
     }
 
     @Test
