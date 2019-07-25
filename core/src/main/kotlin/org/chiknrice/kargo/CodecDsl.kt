@@ -35,12 +35,10 @@ internal class C<T : Any> : DefineCodecDsl<T> {
     override infix fun <C : Any> withConfig(configClass: KClass<C>) = CC<T, C>(configClass)
 
     override infix fun thatEncodesBy(encodeBlock: EncodeBlock<T>) = CE(encodeBlock)
-    override infix fun thatDecodesBy(decodeBlock: DecodeBlock<T>) = CD(decodeBlock)
 
     class CC<T : Any, C : Any>(private val configClass: KClass<C>) :
             ConfigurableCodecDsl<T, C> {
         override infix fun thatEncodesBy(encodeBlock: EncodeWithConfigBlock<T, C>) = CCE(configClass, encodeBlock)
-        override infix fun thatDecodesBy(decodeBlock: DecodeWithConfigBlock<T, C>) = CCD(configClass, decodeBlock)
 
         class CCE<T : Any, C : Any>(private val configClass: KClass<C>,
                                     private val encodeBlock: EncodeWithConfigBlock<T, C>
@@ -54,17 +52,6 @@ internal class C<T : Any> : DefineCodecDsl<T> {
             }
         }
 
-        class CCD<T : Any, C : Any>(private val configClass: KClass<C>,
-                                    private val decodeBlock: DecodeWithConfigBlock<T, C>
-        ) : AndEncodesByDsl<T, EncodeWithConfigBlock<T, C>, BuildConfigurableCodecBlock<T, C>> {
-            override infix fun andEncodesBy(encodeBlock: EncodeWithConfigBlock<T, C>):
-                    BuildConfigurableCodecBlock<T, C> = { override ->
-                configClass.createConfigInstance().apply(override).let { config ->
-                    ValueCodec({ value, buffer -> encodeBlock(value, buffer, config) },
-                            { buffer -> decodeBlock(buffer, config) })
-                }
-            }
-        }
     }
 
     class CE<T : Any>(private val encodeBlock: EncodeBlock<T>) :
@@ -74,47 +61,22 @@ internal class C<T : Any> : DefineCodecDsl<T> {
         }
     }
 
-    class CD<T : Any>(private val decodeBlock: DecodeBlock<T>) :
-            AndEncodesByDsl<T, EncodeBlock<T>, BuildCodecBlock<T>> {
-        override infix fun andEncodesBy(encodeBlock: EncodeBlock<T>): BuildCodecBlock<T> = {
-            ValueCodec(encodeBlock, decodeBlock)
-        }
-    }
 }
 
 internal class F<T : Any> : DefineCodecFilterDsl<T> {
     override infix fun <C : Any> withConfig(configClass: KClass<C>) = FC<T, C>(configClass)
 
     override infix fun thatEncodesBy(filterEncodeBlock: FilterEncodeBlock<T>) = FE(filterEncodeBlock)
-    override infix fun thatDecodesBy(filterDecodeBlock: FilterDecodeBlock<T>) = FD(filterDecodeBlock)
 
     class FC<T : Any, C : Any>(private val configClass: KClass<C>) :
             ConfigurableCodecFilterDsl<T, C> {
         override infix fun thatEncodesBy(filterEncodeBlock: FilterEncodeWithConfigBlock<T, C>) =
                 FCE(configClass, filterEncodeBlock)
 
-        override infix fun thatDecodesBy(filterDecodeBlock: FilterDecodeWithConfigBlock<T, C>) =
-                FCD(configClass, filterDecodeBlock)
-
         class FCE<T : Any, C : Any>(private val configClass: KClass<C>,
                                     private val filterEncodeBlock: FilterEncodeWithConfigBlock<T, C>
         ) : AndDecodesByDsl<T, FilterDecodeWithConfigBlock<T, C>, WrapCodecWithConfigurableFilterBlock<T, C>> {
             override infix fun andDecodesBy(filterDecodeBlock: FilterDecodeWithConfigBlock<T, C>):
-                    WrapCodecWithConfigurableFilterBlock<T, C> = { chain, override ->
-                configClass.createConfigInstance().apply(override).let { config ->
-                    ValueCodec({ value, buffer ->
-                        filterEncodeBlock(value, buffer, config, chain)
-                    }, { buffer ->
-                        filterDecodeBlock(buffer, config, chain)
-                    })
-                }
-            }
-        }
-
-        class FCD<T : Any, C : Any>(private val configClass: KClass<C>,
-                                    private val filterDecodeBlock: FilterDecodeWithConfigBlock<T, C>
-        ) : AndEncodesByDsl<T, FilterEncodeWithConfigBlock<T, C>, WrapCodecWithConfigurableFilterBlock<T, C>> {
-            override infix fun andEncodesBy(filterEncodeBlock: FilterEncodeWithConfigBlock<T, C>):
                     WrapCodecWithConfigurableFilterBlock<T, C> = { chain, override ->
                 configClass.createConfigInstance().apply(override).let { config ->
                     ValueCodec({ value, buffer ->
@@ -131,15 +93,6 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
             AndDecodesByDsl<T, FilterDecodeBlock<T>, WrapCodecWithFilterBlock<T>> {
         override infix fun andDecodesBy(
                 filterDecodeBlock: FilterDecodeBlock<T>): WrapCodecWithFilterBlock<T> = { chain ->
-            ValueCodec({ value, buffer -> filterEncodeBlock(value, buffer, chain) },
-                    { buffer -> filterDecodeBlock(buffer, chain) })
-        }
-    }
-
-    class FD<T : Any>(private val filterDecodeBlock: FilterDecodeBlock<T>) :
-            AndEncodesByDsl<T, FilterEncodeBlock<T>, WrapCodecWithFilterBlock<T>> {
-        override infix fun andEncodesBy(
-                filterEncodeBlock: FilterEncodeBlock<T>): WrapCodecWithFilterBlock<T> = { chain ->
             ValueCodec({ value, buffer -> filterEncodeBlock(value, buffer, chain) },
                     { buffer -> filterDecodeBlock(buffer, chain) })
         }
@@ -227,17 +180,10 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
 internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegmentCodecDsl<T> {
 
     override fun thatEncodesBy(encodeSegmentBlock: EncodeSegmentBlock<T>) = SCE(segmentClass, encodeSegmentBlock)
-    override fun thatDecodesBy(decodeSegmentBlock: DecodeSegmentBlock<T>) = SCD(segmentClass, decodeSegmentBlock)
 
     class SCE<T : Segment>(private val segmentClass: KClass<T>, private val encodeSegmentBlock: EncodeSegmentBlock<T>) :
             AndDecodesByDsl<T, DecodeSegmentBlock<T>, BuildCodecBlock<T>>, BuildCodecBlockBuilder<T>() {
         override fun andDecodesBy(decodeSegmentBlock: DecodeSegmentBlock<T>) =
-                createBuildCodecBlock(segmentClass, encodeSegmentBlock, decodeSegmentBlock)
-    }
-
-    class SCD<T : Segment>(private val segmentClass: KClass<T>, private val decodeSegmentBlock: DecodeSegmentBlock<T>) :
-            AndEncodesByDsl<T, EncodeSegmentBlock<T>, BuildCodecBlock<T>>, BuildCodecBlockBuilder<T>() {
-        override fun andEncodesBy(encodeSegmentBlock: EncodeSegmentBlock<T>): BuildCodecBlock<T> =
                 createBuildCodecBlock(segmentClass, encodeSegmentBlock, decodeSegmentBlock)
     }
 

@@ -26,22 +26,15 @@ import kotlin.reflect.KProperty
  * The contract of what can be done after defineCodec function
  */
 interface DefineCodecDsl<T : Any> :
-        WithEncodeOrWithDecodeDsl<T, EncodeBlock<T>, DecodeBlock<T>, BuildCodecBlock<T>>,
+        ThatEncodesByDsl<T, EncodeBlock<T>, DecodeBlock<T>, BuildCodecBlock<T>>,
         CodecWithConfigDsl<T>
 
 /**
  * The contract of what can be done after defineCodecFilter function
  */
 interface DefineCodecFilterDsl<T : Any> :
-        WithEncodeOrWithDecodeDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, WrapCodecWithFilterBlock<T>>,
+        ThatEncodesByDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, WrapCodecWithFilterBlock<T>>,
         CodecFilterWithConfigDsl<T>
-
-/**
- * The contract providing the option to define an encode or a decode block
- */
-interface WithEncodeOrWithDecodeDsl<T : Any, E, D, R> :
-        ThatEncodesByDsl<T, E, AndDecodesByDsl<T, D, R>>,
-        ThatDecodesByDsl<T, D, AndEncodesByDsl<T, E, R>>
 
 /**
  * The contract of defining a configuration for a codec
@@ -52,7 +45,7 @@ interface CodecWithConfigDsl<T : Any> {
 }
 
 typealias ConfigurableCodecDsl<T, C> =
-        WithEncodeOrWithDecodeDsl<T,
+        ThatEncodesByDsl<T,
                 EncodeWithConfigBlock<T, C>,
                 DecodeWithConfigBlock<T, C>,
                 BuildConfigurableCodecBlock<T, C>>
@@ -66,7 +59,7 @@ interface CodecFilterWithConfigDsl<T : Any> {
 }
 
 typealias ConfigurableCodecFilterDsl<T, C> =
-        WithEncodeOrWithDecodeDsl<T,
+        ThatEncodesByDsl<T,
                 FilterEncodeWithConfigBlock<T, C>,
                 FilterDecodeWithConfigBlock<T, C>,
                 WrapCodecWithConfigurableFilterBlock<T, C>>
@@ -74,29 +67,15 @@ typealias ConfigurableCodecFilterDsl<T, C> =
 /**
  * The contract of defining an encode block
  */
-interface ThatEncodesByDsl<T : Any, P, R> {
-    infix fun thatEncodesBy(encodeBlock: P): R
+interface ThatEncodesByDsl<T : Any, E, D, R> {
+    infix fun thatEncodesBy(encodeBlock: E): AndDecodesByDsl<T, D, R>
 }
 
 /**
  * The contract of defining a decode block
  */
-interface ThatDecodesByDsl<T : Any, P, R> {
-    infix fun thatDecodesBy(decodeBlock: P): R
-}
-
-/**
- * The contract of defining an encode block
- */
-interface AndEncodesByDsl<T : Any, P, R> {
-    infix fun andEncodesBy(encodeBlock: P): R
-}
-
-/**
- * The contract of defining a decode block
- */
-interface AndDecodesByDsl<T : Any, P, R> {
-    infix fun andDecodesBy(decodeBlock: P): R
+interface AndDecodesByDsl<T : Any, D, R> {
+    infix fun andDecodesBy(decodeBlock: D): R
 }
 
 /**
@@ -151,7 +130,7 @@ interface ThenWithDsl<T : Any> : DelegateProvider<T> {
  * The contract of what can be done after defineSegmentCodec function
  */
 interface DefineSegmentCodecDsl<T : Segment> :
-        WithEncodeOrWithDecodeDsl<T, EncodeSegmentBlock<T>, DecodeSegmentBlock<T>, BuildCodecBlock<T>>
+        ThatEncodesByDsl<T, EncodeSegmentBlock<T>, DecodeSegmentBlock<T>, BuildCodecBlock<T>>
 
 /**
  * The entrypoint function of defining a codec
