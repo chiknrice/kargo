@@ -312,7 +312,7 @@ class SegmentPropertyCodecTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecDefinition withConfig { length = 10 }
+            var a by defineProperty<Any>() using codecDefinition.withOverrides { length = 10 }
         }
 
         val y = Y()
@@ -446,7 +446,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith lastFilterDefinition withConfig { length = 10 }
+            var a by defineProperty<Any>() using codecDefinition wrappedWith lastFilterDefinition.withOverrides { length = 10 }
         }
 
         val y = Y()
@@ -456,7 +456,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(10)
 
         class Z : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith lastFilterDefinition withConfig { length = 10 }
+            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith lastFilterDefinition.withOverrides { length = 10 }
         }
 
         val z = Z()

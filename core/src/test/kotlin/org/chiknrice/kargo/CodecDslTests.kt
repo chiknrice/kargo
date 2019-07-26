@@ -112,7 +112,7 @@ class CodecDslTests {
         every { capture(configArg).mockConfigSpec() } just Runs
 
         val codecDefinition = defineCodec<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
-        codecDefinition.buildCodec(mockConfigSpec)
+        codecDefinition.withOverrides(mockConfigSpec).buildCodec()
 
         val config = configArg.captured
 
@@ -167,7 +167,7 @@ class FilterDslTests {
         every { mockFilterDecodeSpec(mockBuffer, capture(configArg), mockCodec) } returns testValue
 
         val filterDefinition = defineFilter<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
-        val codec = filterDefinition.wrapCodec(mockCodec) {}
+        val codec = filterDefinition.wrapCodec(mockCodec)
 
         codec.encode(testValue, mockBuffer)
         val encodeConfig = configArg.captured
@@ -194,7 +194,7 @@ class FilterDslTests {
         every { capture(configArg).mockConfigSpec() } just Runs
 
         val filterDefinition = defineFilter<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
-        filterDefinition.wrapCodec(mockCodec, mockConfigSpec)
+        filterDefinition.withOverrides(mockConfigSpec).wrapCodec(mockCodec)
 
         val config = configArg.captured
 

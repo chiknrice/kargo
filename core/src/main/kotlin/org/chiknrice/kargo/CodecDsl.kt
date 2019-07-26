@@ -54,8 +54,15 @@ internal class C<T : Any> : DefineCodecDsl<T> {
         ) : AndDecodesByDsl<T, ConfigurableDecodeSpec<T, C>, ConfigurableCodecDefinition<T, C>> {
             override infix fun andDecodesBy(decodeSpec: ConfigurableDecodeSpec<T, C>) =
                     object : ConfigurableCodecDefinition<T, C> {
-                        override fun buildCodec(override: ConfigSpec<C>) =
-                                configDefinition.buildConfig(override).let { config ->
+                        override fun withOverrides(overrides: ConfigSpec<C>) =
+                                object : CodecDefinition<T> {
+                                    override fun buildCodec() = buildCodec(overrides)
+                                }
+
+                        override fun buildCodec() = buildCodec { }
+
+                        private fun buildCodec(overrides: ConfigSpec<C>) =
+                                configDefinition.buildConfig(overrides).let { config ->
                                     ValueCodec({ value, buffer -> encodeSpec(value, buffer, config) },
                                             { buffer -> decodeSpec(buffer, config) })
                                 }
@@ -88,7 +95,14 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
         ) : AndDecodesByDsl<T, ConfigurableFilterDecodeSpec<T, C>, ConfigurableFilterDefinition<T, C>> {
             override infix fun andDecodesBy(filterDecodeSpec: ConfigurableFilterDecodeSpec<T, C>) =
                     object : ConfigurableFilterDefinition<T, C> {
-                        override fun wrapCodec(chain: Codec<T>, override: ConfigSpec<C>) =
+                        override fun withOverrides(overrides: ConfigSpec<C>) =
+                                object : FilterDefinition<T> {
+                                    override fun wrapCodec(chain: Codec<T>) = wrapCodec(chain, overrides)
+                                }
+
+                        override fun wrapCodec(chain: Codec<T>) = wrapCodec(chain) {}
+
+                        private fun wrapCodec(chain: Codec<T>, override: ConfigSpec<C>) =
                                 configDefinition.buildConfig(override).let { config ->
                                     ValueCodec({ value, buffer ->
                                         filterEncodeSpec(value, buffer, config, chain)
@@ -119,35 +133,14 @@ internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KPrope
 
 internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     override infix fun using(codecDefinition: CodecDefinition<T>) = SC(codecDefinition)
-    override infix fun <C : Any> using(codecDefinition: ConfigurableCodecDefinition<T, C>) =
-            SCC(codecDefinition)
 
     class SC<T : Any>(private val codecDefinition: CodecDefinition<T>) : SegmentPropertyProvider<T>() {
         override fun buildCodec() = codecDefinition.buildCodec()
     }
 
-    class SCC<T : Any, C : Any>(private val codecDefinition: ConfigurableCodecDefinition<T, C>) :
-            SegmentPropertyProvider<T>(), WrappedWithOrConfigWithDsl<T, C> {
-        private var configSpec: ConfigSpec<C> = {}
-        override infix fun withConfig(configSpec: ConfigSpec<C>) =
-                this.also { this.configSpec = configSpec }
-
-        override fun buildCodec() = codecDefinition.buildCodec(configSpec)
-    }
-
     class SF<T : Any>(private val chain: Codec<T>, private val filterDefinition: FilterDefinition<T>) :
             SegmentPropertyProvider<T>() {
         override fun buildCodec() = filterDefinition.wrapCodec(chain)
-    }
-
-    class SCF<T : Any, C : Any>(private val codec: Codec<T>,
-                                private val filterDefinition: ConfigurableFilterDefinition<T, C>) :
-            SegmentPropertyProvider<T>(), WrappedWithOrConfigWithDsl<T, C>, ThenWithOrWithConfigDsl<T, C> {
-        private var configSpec: ConfigSpec<C> = {}
-        override infix fun withConfig(configSpec: ConfigSpec<C>) =
-                this.also { this.configSpec = configSpec }
-
-        override fun buildCodec() = filterDefinition.wrapCodec(codec, configSpec)
     }
 
     /**
@@ -157,12 +150,8 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     abstract class SegmentPropertyProvider<T : Any> : WrappedWithDsl<T>, ThenWithDsl<T> {
 
         override infix fun wrappedWith(filterDefinition: FilterDefinition<T>) = SF(buildCodec(), filterDefinition)
-        override infix fun <C : Any> wrappedWith(filterDefinition: ConfigurableFilterDefinition<T, C>) =
-                SCF(buildCodec(), filterDefinition)
 
         override infix fun thenWith(filterDefinition: FilterDefinition<T>) = SF(buildCodec(), filterDefinition)
-        override infix fun <C : Any> thenWith(filterDefinition: ConfigurableFilterDefinition<T, C>) =
-                SCF(buildCodec(), filterDefinition)
 
         abstract fun buildCodec(): Codec<T>
 

@@ -83,15 +83,6 @@ interface AndDecodesByDsl<T : Any, D, R> {
  */
 interface DefineSegmentPropertyDsl<T : Any> {
     infix fun using(codecDefinition: CodecDefinition<T>): WrappedWithDsl<T>
-    infix fun <C : Any> using(codecDefinition: ConfigurableCodecDefinition<T, C>):
-            WrappedWithOrConfigWithDsl<T, C>
-}
-
-/**
- * The contract of providing an option to define config override together with filtering
- */
-interface WrappedWithOrConfigWithDsl<T : Any, C : Any> : WrappedWithDsl<T> {
-    infix fun withConfig(configSpec: ConfigSpec<C>): WrappedWithDsl<T>
 }
 
 /**
@@ -106,15 +97,6 @@ interface DelegateProvider<T : Any> {
  */
 interface WrappedWithDsl<T : Any> : DelegateProvider<T> {
     infix fun wrappedWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
-    infix fun <C : Any> wrappedWith(filterDefinition: ConfigurableFilterDefinition<T, C>):
-            ThenWithOrWithConfigDsl<T, C>
-}
-
-/**
- * The contract of providing the option to define config override together with further filtering
- */
-interface ThenWithOrWithConfigDsl<T : Any, C : Any> : ThenWithDsl<T> {
-    infix fun withConfig(configSpec: ConfigSpec<C>): ThenWithDsl<T>
 }
 
 /**
@@ -122,8 +104,6 @@ interface ThenWithOrWithConfigDsl<T : Any, C : Any> : ThenWithDsl<T> {
  */
 interface ThenWithDsl<T : Any> : DelegateProvider<T> {
     infix fun thenWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
-    infix fun <C : Any> thenWith(filterDefinition: ConfigurableFilterDefinition<T, C>):
-            ThenWithOrWithConfigDsl<T, C>
 }
 
 /**
@@ -135,12 +115,14 @@ interface DefineSegmentCodecDsl<T : Segment> :
 /**
  * The entrypoint function for defining a config
  */
-fun <C : Any> defineConfig(configClass: KClass<C>, defaults: ConfigSpec<C> = {}): ConfigDefinition<C> = createConfigDefinition(configClass, defaults)
+fun <C : Any> defineConfig(configClass: KClass<C>, defaults: ConfigSpec<C> = {}): ConfigDefinition<C> =
+        createConfigDefinition(configClass, defaults)
 
 /**
  * A convenience idiomatic kotlin function delegating to defineConfig function
  */
-inline fun <reified C : Any> defineConfig(noinline defaults: ConfigSpec<C> = {}): ConfigDefinition<C> = defineConfig(C::class, defaults)
+inline fun <reified C : Any> defineConfig(noinline defaults: ConfigSpec<C> = {}): ConfigDefinition<C> =
+        defineConfig(C::class, defaults)
 
 /**
  * The entrypoint function of defining a codec
