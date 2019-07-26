@@ -18,8 +18,13 @@
 
 package org.chiknrice.kargo
 
-inline fun <reified T : Segment> simpleSegmentCodec() = defineSegmentCodec<T>() thatEncodesBy { _, segmentProperties, buffer ->
+import kotlin.reflect.KClass
+
+fun <T : Segment> simpleSegmentCodec(segmentClass: KClass<T>) = defineSegmentCodec(
+        segmentClass) thatEncodesBy { _, segmentProperties, buffer ->
     segmentProperties.forEach { it.encode(buffer) }
 } andDecodesBy { segmentProperties, buffer, _ ->
     segmentProperties.forEach { it.decode(buffer) }
 }
+
+inline fun <reified T : Segment> simpleSegmentCodec() = simpleSegmentCodec(T::class)
