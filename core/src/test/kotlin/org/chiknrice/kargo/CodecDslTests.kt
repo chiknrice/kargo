@@ -122,15 +122,74 @@ class CodecDslTests {
     }
 
     @Test
-    @Disabled
-    fun `A subsequent config override creates a new codec definition`() {
-        TODO("implement this")
+    fun `A codec created from the original definition is not affected by a prior config override`(
+            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
+    ) {
+        class X(var a: Int = 1)
+
+        val configArg = slot<X>()
+        every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
+
+        val codecDefinition = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val originalCodec = codecDefinition.buildCodec()
+
+        val overriddenCodecDefinition = codecDefinition.withOverrides { a = 2 }
+        val overriddenCodec = overriddenCodecDefinition.buildCodec()
+
+        originalCodec.encode(testValue, mockBuffer)
+        val originalEncodeConfig = configArg.captured
+        assertThat(originalEncodeConfig.a).isEqualTo(1)
+
+        overriddenCodec.encode(testValue, mockBuffer)
+        val overriddenEncodeConfig = configArg.captured
+        assertThat(overriddenEncodeConfig.a).isEqualTo(2)
+
+        verifySequence {
+            mockEncodeSpec(testValue, mockBuffer, originalEncodeConfig)
+            mockEncodeSpec(testValue, mockBuffer, overriddenEncodeConfig)
+        }
+
+        confirmVerified(mockEncodeSpec)
     }
 
     @Test
-    @Disabled
-    fun `A subsequent config override supersedes the previous settings`() {
-        TODO("implement this")
+    fun `A subsequent config override creates a new codec definition`(
+            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
+    ) {
+        class X(var a: Int = 1)
+
+        val codecDefinition = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+
+        val overriddenCodecDefinition = codecDefinition.withOverrides {}
+
+        assertThat(overriddenCodecDefinition).isNotSameAs(codecDefinition)
+    }
+
+    @Test
+    fun `A subsequent config override creates another definition which supersedes the previous settings`(
+            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
+    ) {
+        class X(var a: Int = 1)
+
+        val configArg = slot<X>()
+        every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
+
+        val initiallyOverriddenDefinition = (defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec)
+                .withOverrides { a = 2 }
+        val overriddenDefinition = initiallyOverriddenDefinition.withOverrides { a = 5 }
+
+        assertThat(overriddenDefinition).isNotSameAs(initiallyOverriddenDefinition)
+
+        val overriddenCodec = overriddenDefinition.buildCodec()
+
+        overriddenCodec.encode(testValue, mockBuffer)
+
+        val overriddenEncodeConfig = configArg.captured
+
+        assertThat(overriddenEncodeConfig.a).isEqualTo(5)
     }
 
 }

@@ -52,7 +52,7 @@ internal class C<T : Any> : DefineCodecDsl<T> {
 
         class CCE<T : Any, C : Any>(private val configClass: KClass<C>,
                                     private val encodeSpec: ConfigurableEncodeSpec<T, C>
-        ) : AndDecodesByDsl<T, ConfigurableDecodeSpec<T, C>, ConfigurableCodecDefinition<T, C>> {
+        ) : AndDecodesByDsl<T, ConfigurableDecodeSpec<T, C>, OverridableCodecConfigDsl<T, C>> {
             override infix fun andDecodesBy(decodeSpec: ConfigurableDecodeSpec<T, C>) =
                     CCD(configClass, emptyList(), encodeSpec, decodeSpec)
         }
@@ -61,7 +61,7 @@ internal class C<T : Any> : DefineCodecDsl<T> {
                                     private val overridesChain: List<ConfigSpec<C>>,
                                     private val encodeSpec: ConfigurableEncodeSpec<T, C>,
                                     private val decodeSpec: ConfigurableDecodeSpec<T, C>) :
-                ConfigurableCodecDefinition<T, C> {
+                OverridableCodecConfigDsl<T, C> {
             override fun buildCodec(): Codec<T> = configClass.createConfigInstance(overridesChain).let {
                 ValueCodec({ value, buffer -> encodeSpec(value, buffer, it) }, { buffer -> decodeSpec(buffer, it) })
             }
@@ -93,7 +93,7 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
 
         class FCE<T : Any, C : Any>(private val configClass: KClass<C>,
                                     private val filterEncodeSpec: ConfigurableFilterEncodeSpec<T, C>
-        ) : AndDecodesByDsl<T, ConfigurableFilterDecodeSpec<T, C>, ConfigurableFilterDefinition<T, C>> {
+        ) : AndDecodesByDsl<T, ConfigurableFilterDecodeSpec<T, C>, OverridableFilterConfigDsl<T, C>> {
             override infix fun andDecodesBy(filterDecodeSpec: ConfigurableFilterDecodeSpec<T, C>) =
                     FCD(configClass, emptyList(), filterEncodeSpec, filterDecodeSpec)
         }
@@ -102,7 +102,7 @@ internal class F<T : Any> : DefineCodecFilterDsl<T> {
                                     private val overridesChain: List<ConfigSpec<C>>,
                                     private val filterEncodeSpec: ConfigurableFilterEncodeSpec<T, C>,
                                     private val filterDecodeSpec: ConfigurableFilterDecodeSpec<T, C>) :
-                ConfigurableFilterDefinition<T, C> {
+                OverridableFilterConfigDsl<T, C> {
             override fun wrapCodec(chain: Codec<T>) = configClass.createConfigInstance(overridesChain).let {
                 ValueCodec({ value, buffer ->
                     filterEncodeSpec(value, buffer, it, chain)

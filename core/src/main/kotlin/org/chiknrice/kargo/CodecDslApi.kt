@@ -44,11 +44,18 @@ interface CodecWithConfigDsl<T : Any> {
             ConfigurableCodecDsl<T, C>
 }
 
+/**
+ * The contract of optionally overriding configuration of type C of a codec for type T
+ */
+interface OverridableCodecConfigDsl<T : Any, C : Any> : CodecDefinition<T> {
+    fun withOverrides(overrides: ConfigSpec<C>): OverridableCodecConfigDsl<T, C>
+}
+
 typealias ConfigurableCodecDsl<T, C> =
         ThatEncodesByDsl<T,
                 ConfigurableEncodeSpec<T, C>,
                 ConfigurableDecodeSpec<T, C>,
-                ConfigurableCodecDefinition<T, C>>
+                OverridableCodecConfigDsl<T, C>>
 
 /**
  * The contract of defining a configuration for a codec filter
@@ -58,11 +65,18 @@ interface CodecFilterWithConfigDsl<T : Any> {
             ConfigurableCodecFilterDsl<T, C>
 }
 
+/**
+ * The contract of optionally overriding configuration of type C of a filter for type T
+ */
+interface OverridableFilterConfigDsl<T : Any, C : Any> : FilterDefinition<T> {
+    fun withOverrides(overrides: ConfigSpec<C>): OverridableFilterConfigDsl<T, C>
+}
+
 typealias ConfigurableCodecFilterDsl<T, C> =
         ThatEncodesByDsl<T,
                 ConfigurableFilterEncodeSpec<T, C>,
                 ConfigurableFilterDecodeSpec<T, C>,
-                ConfigurableFilterDefinition<T, C>>
+                OverridableFilterConfigDsl<T, C>>
 
 /**
  * The contract of defining an encode specification
