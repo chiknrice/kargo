@@ -36,7 +36,8 @@ internal fun <C : Any> createConfigDefinition(configClass: KClass<C>, defaults: 
             override fun buildConfig(overrides: ConfigSpec<C>): C = try {
                 configClass.createInstance()
             } catch (e: Exception) {
-                throw CodecConfigurationException("Failed to create configuration class instance: ${configClass.simpleName}", e)
+                throw CodecConfigurationException(
+                        "Failed to create configuration class instance: ${configClass.simpleName}", e)
             }.apply(defaults).apply(overrides)
         }
 
