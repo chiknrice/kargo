@@ -26,14 +26,14 @@ import kotlin.reflect.KProperty
  * The contract of what can be done after defineCodec function
  */
 interface DefineCodecDsl<T : Any> :
-        ThatEncodesByDsl<T, EncodeBlock<T>, DecodeBlock<T>, BuildCodecBlock<T>>,
+        ThatEncodesByDsl<T, EncodeSpec<T>, DecodeSpec<T>, CodecDefinition<T>>,
         CodecWithConfigDsl<T>
 
 /**
  * The contract of what can be done after defineCodecFilter function
  */
 interface DefineCodecFilterDsl<T : Any> :
-        ThatEncodesByDsl<T, FilterEncodeBlock<T>, FilterDecodeBlock<T>, WrapCodecWithFilterBlock<T>>,
+        ThatEncodesByDsl<T, FilterEncodeSpec<T>, FilterDecodeSpec<T>, FilterDefinition<T>>,
         CodecFilterWithConfigDsl<T>
 
 /**
@@ -46,9 +46,9 @@ interface CodecWithConfigDsl<T : Any> {
 
 typealias ConfigurableCodecDsl<T, C> =
         ThatEncodesByDsl<T,
-                EncodeWithConfigBlock<T, C>,
-                DecodeWithConfigBlock<T, C>,
-                BuildConfigurableCodecBlock<T, C>>
+                ConfigurableEncodeSpec<T, C>,
+                ConfigurableDecodeSpec<T, C>,
+                ConfigurableCodecDefinition<T, C>>
 
 /**
  * The contract of defining a configuration for a codec filter
@@ -60,30 +60,30 @@ interface CodecFilterWithConfigDsl<T : Any> {
 
 typealias ConfigurableCodecFilterDsl<T, C> =
         ThatEncodesByDsl<T,
-                FilterEncodeWithConfigBlock<T, C>,
-                FilterDecodeWithConfigBlock<T, C>,
-                WrapCodecWithConfigurableFilterBlock<T, C>>
+                ConfigurableFilterEncodeSpec<T, C>,
+                ConfigurableFilterDecodeSpec<T, C>,
+                ConfigurableFilterDefinition<T, C>>
 
 /**
- * The contract of defining an encode block
+ * The contract of defining an encode specification
  */
 interface ThatEncodesByDsl<T : Any, E, D, R> {
-    infix fun thatEncodesBy(encodeBlock: E): AndDecodesByDsl<T, D, R>
+    infix fun thatEncodesBy(encodeSpec: E): AndDecodesByDsl<T, D, R>
 }
 
 /**
- * The contract of defining a decode block
+ * The contract of defining a decode specification
  */
 interface AndDecodesByDsl<T : Any, D, R> {
-    infix fun andDecodesBy(decodeBlock: D): R
+    infix fun andDecodesBy(decodeSpec: D): R
 }
 
 /**
  * The contract of what can be done after defineSegmentProperty function
  */
 interface DefineSegmentPropertyDsl<T : Any> {
-    infix fun using(buildCodecBlock: BuildCodecBlock<T>): WrappedWithDsl<T>
-    infix fun <C : Any> using(buildConfigurableCodecBlock: BuildConfigurableCodecBlock<T, C>):
+    infix fun using(codecDefinition: CodecDefinition<T>): WrappedWithDsl<T>
+    infix fun <C : Any> using(codecDefinition: ConfigurableCodecDefinition<T, C>):
             WrappedWithOrConfigWithDsl<T, C>
 }
 
@@ -91,7 +91,7 @@ interface DefineSegmentPropertyDsl<T : Any> {
  * The contract of providing an option to define config override together with filtering
  */
 interface WrappedWithOrConfigWithDsl<T : Any, C : Any> : WrappedWithDsl<T> {
-    infix fun withConfig(overrideConfigBlock: OverrideConfigBlock<C>): WrappedWithDsl<T>
+    infix fun withConfig(overrideConfigSpec: OverrideConfigSpec<C>): WrappedWithDsl<T>
 }
 
 /**
@@ -105,8 +105,8 @@ interface DelegateProvider<T : Any> {
  * The contract of providing the option to filter with or without a configuration
  */
 interface WrappedWithDsl<T : Any> : DelegateProvider<T> {
-    infix fun wrappedWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
-    infix fun <C : Any> wrappedWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
+    infix fun wrappedWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
+    infix fun <C : Any> wrappedWith(filterDefinition: ConfigurableFilterDefinition<T, C>):
             ThenWithOrWithConfigDsl<T, C>
 }
 
@@ -114,15 +114,15 @@ interface WrappedWithDsl<T : Any> : DelegateProvider<T> {
  * The contract of providing the option to define config override together with further filtering
  */
 interface ThenWithOrWithConfigDsl<T : Any, C : Any> : ThenWithDsl<T> {
-    infix fun withConfig(overrideConfigBlock: OverrideConfigBlock<C>): ThenWithDsl<T>
+    infix fun withConfig(overrideConfigSpec: OverrideConfigSpec<C>): ThenWithDsl<T>
 }
 
 /**
  * The contract of providing the option to further filter with or without a configuration
  */
 interface ThenWithDsl<T : Any> : DelegateProvider<T> {
-    infix fun thenWith(wrapCodecWithFilterBlock: WrapCodecWithFilterBlock<T>): ThenWithDsl<T>
-    infix fun <C : Any> thenWith(wrapCodecWithConfigurableFilterBlock: WrapCodecWithConfigurableFilterBlock<T, C>):
+    infix fun thenWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
+    infix fun <C : Any> thenWith(filterDefinition: ConfigurableFilterDefinition<T, C>):
             ThenWithOrWithConfigDsl<T, C>
 }
 
@@ -130,7 +130,7 @@ interface ThenWithDsl<T : Any> : DelegateProvider<T> {
  * The contract of what can be done after defineSegmentCodec function
  */
 interface DefineSegmentCodecDsl<T : Segment> :
-        ThatEncodesByDsl<T, EncodeSegmentBlock<T>, DecodeSegmentBlock<T>, BuildCodecBlock<T>>
+        ThatEncodesByDsl<T, EncodeSegmentSpec<T>, DecodeSegmentSpec<T>, CodecDefinition<T>>
 
 /**
  * The entrypoint function of defining a codec

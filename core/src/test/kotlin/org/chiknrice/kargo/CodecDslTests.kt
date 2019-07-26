@@ -37,15 +37,15 @@ class CodecDslTests {
     private val configArg = slot<Any>()
 
     @Test
-    fun `A codec delegates to the defined encode and decode blocks`(
-            @MockK mockEncode: EncodeBlock<Any>,
-            @MockK mockDecode: DecodeBlock<Any>
+    fun `A codec delegates to the defined encode and decode specs`(
+            @MockK mockEncodeSpec: EncodeSpec<Any>,
+            @MockK mockDecodeSpec: DecodeSpec<Any>
     ) {
-        every { mockEncode(testValue, mockBuffer) } just Runs
-        every { mockDecode(mockBuffer) } returns testValue
+        every { mockEncodeSpec(testValue, mockBuffer) } just Runs
+        every { mockDecodeSpec(mockBuffer) } returns testValue
 
-        val buildCodec = defineCodec<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode
-        val codec = buildCodec()
+        val codecDefinition = defineCodec<Any>() thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codec = codecDefinition.buildCodec()
 
         codec.encode(testValue, mockBuffer)
 
@@ -53,39 +53,39 @@ class CodecDslTests {
 
         assertThat(result).isSameAs(testValue)
 
-        verify(exactly = 1) { mockEncode(testValue, mockBuffer) }
-        verify(exactly = 1) { mockDecode(mockBuffer) }
+        verify(exactly = 1) { mockEncodeSpec(testValue, mockBuffer) }
+        verify(exactly = 1) { mockDecodeSpec(mockBuffer) }
         verifySequence {
-            mockEncode(testValue, mockBuffer)
-            mockDecode(mockBuffer)
+            mockEncodeSpec(testValue, mockBuffer)
+            mockDecodeSpec(mockBuffer)
         }
 
-        confirmVerified(mockEncode, mockDecode)
+        confirmVerified(mockEncodeSpec, mockDecodeSpec)
     }
 
     @Test
     fun `A configuration class without a default constructor results in exception`(
-            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>
+            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
     ) {
         class X(var a: Any)
 
-        val buildCodec = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncode andDecodesBy mockDecode
-        assertThatThrownBy { buildCodec {} }.isExactlyInstanceOf(CodecConfigurationException::class.java)
+        val codecDefinition = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        assertThatThrownBy { codecDefinition.buildCodec {} }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Failed to create configuration class instance: X")
                 .hasCauseExactlyInstanceOf(IllegalArgumentException::class.java)
     }
 
     @Test
-    fun `A configurable codec delegates to the defined encode and decode blocks with the same instance of the config class`(
-            @MockK mockEncode: EncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecode: DecodeWithConfigBlock<Any, Any>
+    fun `A configurable codec delegates to the defined encode and decode specs with the same instance of the config class`(
+            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
     ) {
-        every { mockEncode(testValue, mockBuffer, capture(configArg)) } just Runs
-        every { mockDecode(mockBuffer, capture(configArg)) } returns testValue
+        every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
+        every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
-        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
-        val codec = buildCodec {}
+        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codec = codecDefinition.buildCodec {}
 
         codec.encode(testValue, mockBuffer)
         val encodeConfig = configArg.captured
@@ -97,22 +97,22 @@ class CodecDslTests {
 
         assertThat(encodeConfig).isSameAs(decodeConfig)
 
-        verify { mockEncode(testValue, mockBuffer, encodeConfig) }
-        verify { mockDecode(mockBuffer, decodeConfig) }
+        verify { mockEncodeSpec(testValue, mockBuffer, encodeConfig) }
+        verify { mockDecodeSpec(mockBuffer, decodeConfig) }
 
-        confirmVerified(mockEncode, mockDecode)
+        confirmVerified(mockEncodeSpec, mockDecodeSpec)
     }
 
     @Test
-    fun `A codec config override block applies to the config`(
-            @MockK(relaxed = true) mockEncode: EncodeWithConfigBlock<Any, Any>,
-            @MockK(relaxed = true) mockDecode: DecodeWithConfigBlock<Any, Any>,
-            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    fun `A codec config override spec applies to the config`(
+            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
+            @MockK mockOverrideConfig: OverrideConfigSpec<Any>
     ) {
         every { capture(configArg).mockOverrideConfig() } just Runs
 
-        val buildCodec = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
-        buildCodec(mockOverrideConfig)
+        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        codecDefinition.buildCodec(mockOverrideConfig)
 
         val config = configArg.captured
 
@@ -134,40 +134,40 @@ class FilterDslTests {
     private val configArg = slot<Any>()
 
     @Test
-    fun `A codec filter delegates to the defined encode and decode blocks with the wrapped codec`(
-            @MockK mockEncode: FilterEncodeBlock<Any>,
-            @MockK mockDecode: FilterDecodeBlock<Any>
+    fun `A codec filter delegates to the defined encode and decode specs with the wrapped codec`(
+            @MockK mockFilterEncodeSpec: FilterEncodeSpec<Any>,
+            @MockK mockFilterDecodeSpec: FilterDecodeSpec<Any>
     ) {
-        every { mockEncode(testValue, mockBuffer, mockCodec) } just Runs
-        every { mockDecode(mockBuffer, mockCodec) } returns testValue
+        every { mockFilterEncodeSpec(testValue, mockBuffer, mockCodec) } just Runs
+        every { mockFilterDecodeSpec(mockBuffer, mockCodec) } returns testValue
 
-        val filterCodec = defineFilter<Any>() thatEncodesBy mockEncode andDecodesBy mockDecode
+        val filterDefinition = defineFilter<Any>() thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
 
-        val filteredCodec = filterCodec(mockCodec)
+        val filteredCodec = filterDefinition.wrapCodec(mockCodec)
 
         filteredCodec.encode(testValue, mockBuffer)
 
-        verify { mockEncode(testValue, mockBuffer, mockCodec) }
+        verify { mockFilterEncodeSpec(testValue, mockBuffer, mockCodec) }
 
         val result = filteredCodec.decode(mockBuffer)
 
         assertThat(result).isSameAs(testValue)
 
-        verify { mockDecode(mockBuffer, mockCodec) }
+        verify { mockFilterDecodeSpec(mockBuffer, mockCodec) }
 
-        confirmVerified(mockEncode, mockDecode)
+        confirmVerified(mockFilterEncodeSpec, mockFilterDecodeSpec)
     }
 
     @Test
-    fun `A configurable codec filter delegates to the defined encode and decode blocks with the same instance of the config class`(
-            @MockK mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
-            @MockK mockDecode: FilterDecodeWithConfigBlock<Any, Any>
+    fun `A configurable codec filter delegates to the defined encode and decode specs with the same instance of the config class`(
+            @MockK mockFilterEncodeSpec: ConfigurableFilterEncodeSpec<Any, Any>,
+            @MockK mockFilterDecodeSpec: ConfigurableFilterDecodeSpec<Any, Any>
     ) {
-        every { mockEncode(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
-        every { mockDecode(mockBuffer, capture(configArg), mockCodec) } returns testValue
+        every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
+        every { mockFilterDecodeSpec(mockBuffer, capture(configArg), mockCodec) } returns testValue
 
-        val wrapCodec = defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
-        val codec = wrapCodec(mockCodec) {}
+        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val codec = filterDefinition.wrapCodec(mockCodec) {}
 
         codec.encode(testValue, mockBuffer)
         val encodeConfig = configArg.captured
@@ -179,22 +179,22 @@ class FilterDslTests {
 
         assertThat(encodeConfig).isSameAs(decodeConfig)
 
-        verify { mockEncode(testValue, mockBuffer, encodeConfig, mockCodec) }
-        verify { mockDecode(mockBuffer, decodeConfig, mockCodec) }
+        verify { mockFilterEncodeSpec(testValue, mockBuffer, encodeConfig, mockCodec) }
+        verify { mockFilterDecodeSpec(mockBuffer, decodeConfig, mockCodec) }
 
-        confirmVerified(mockEncode, mockDecode)
+        confirmVerified(mockFilterEncodeSpec, mockFilterDecodeSpec)
     }
 
     @Test
-    fun `A codec filter config override block applies to the config`(
-            @MockK(relaxed = true) mockEncode: FilterEncodeWithConfigBlock<Any, Any>,
-            @MockK(relaxed = true) mockDecode: FilterDecodeWithConfigBlock<Any, Any>,
-            @MockK mockOverrideConfig: OverrideConfigBlock<Any>
+    fun `A codec filter config override spec applies to the config`(
+            @MockK(relaxed = true) mockFilterEncodeSpec: ConfigurableFilterEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockFilterDecodeSpec: ConfigurableFilterDecodeSpec<Any, Any>,
+            @MockK mockOverrideConfig: OverrideConfigSpec<Any>
     ) {
         every { capture(configArg).mockOverrideConfig() } just Runs
 
-        val wrapCodec = defineFilter<Any>() withConfig Any::class thatEncodesBy mockEncode andDecodesBy mockDecode
-        wrapCodec(mockCodec, mockOverrideConfig)
+        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        filterDefinition.wrapCodec(mockCodec, mockOverrideConfig)
 
         val config = configArg.captured
 
@@ -211,36 +211,36 @@ class SegmentCodecDslTests {
     // somehow mocks that are member of the test class is causing an issue with createInstance reflection method called
     // on segment classes having segment properties defined with these mocks
     companion object {
-        val staticMockBuildCodec = mockk<BuildCodecBlock<Any>>()
+        val staticMockCodecDefinition = mockk<CodecDefinition<Any>>()
         private val staticMockCodec = mockk<Codec<Any>>(relaxed = true)
 
         init {
-            every { staticMockBuildCodec() } returns staticMockCodec
+            every { staticMockCodecDefinition.buildCodec() } returns staticMockCodec
         }
     }
 
     @MockK(relaxed = true)
     private lateinit var mockBuffer: ByteBuffer
     @MockK(relaxed = true)
-    private lateinit var encodeBlock: EncodeSegmentBlock<Any>
+    private lateinit var mockEncodeSegmentSpec: EncodeSegmentSpec<Any>
     @MockK(relaxed = true)
-    private lateinit var decodeBlock: DecodeSegmentBlock<Any>
+    private lateinit var mockDecodeSegmentSpec: DecodeSegmentSpec<Any>
 
     @Test
     fun `Defining a segment codec for a segment class without a default constructor results in exception`() {
         class X(val a: Any = "") : Segment() {
-            var b by defineProperty<Any>() using staticMockBuildCodec
+            var b by defineProperty<Any>() using staticMockCodecDefinition
         }
 
         class Y(val a: Any) : Segment() {
-            var b by defineProperty<Any>() using staticMockBuildCodec
+            var b by defineProperty<Any>() using staticMockCodecDefinition
         }
 
         // segment class with constructor argument but with default values should still work
-        defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+        defineSegmentCodec<X>() thatEncodesBy mockEncodeSegmentSpec andDecodesBy mockDecodeSegmentSpec
 
         assertThatThrownBy {
-            defineSegmentCodec<Y>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+            defineSegmentCodec<Y>() thatEncodesBy mockEncodeSegmentSpec andDecodesBy mockDecodeSegmentSpec
         }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Failed to create segment class instance: Y")
                 .hasCauseExactlyInstanceOf(IllegalArgumentException::class.java)
@@ -249,13 +249,13 @@ class SegmentCodecDslTests {
     @Test
     fun `Defining a segment codec for a segment class having segment properties assigned and not delegated results in exception`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockBuildCodec
+            var a by defineProperty<Any>() using staticMockCodecDefinition
             var b = Any()
-            var c = defineProperty<Any>() using staticMockBuildCodec
-            var d = defineProperty<Any>() using staticMockBuildCodec
+            var c = defineProperty<Any>() using staticMockCodecDefinition
+            var d = defineProperty<Any>() using staticMockCodecDefinition
         }
         assertThatThrownBy {
-            defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+            defineSegmentCodec<X>() thatEncodesBy mockEncodeSegmentSpec andDecodesBy mockDecodeSegmentSpec
         }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Properties are incorrectly assigned: [c, d]")
     }
@@ -266,29 +266,29 @@ class SegmentCodecDslTests {
             var a = Any()
         }
         assertThatThrownBy {
-            defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+            defineSegmentCodec<X>() thatEncodesBy mockEncodeSegmentSpec andDecodesBy mockDecodeSegmentSpec
         }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Segment class [X] is required to have a segment property")
     }
 
     @Test
-    fun `Segment codec delegates to the defined encode and decode blocks passing an instance of the segment class`() {
+    fun `Segment codec delegates to the defined encode and decode specs passing an instance of the segment class`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockBuildCodec
+            var a by defineProperty<Any>() using staticMockCodecDefinition
         }
 
-        val buildCodec = defineSegmentCodec<X>() thatEncodesBy encodeBlock andDecodesBy decodeBlock
+        val codecDefinition = defineSegmentCodec<X>() thatEncodesBy mockEncodeSegmentSpec andDecodesBy mockDecodeSegmentSpec
 
-        val segmentCodec = buildCodec()
+        val segmentCodec = codecDefinition.buildCodec()
         val testSegment = X()
         segmentCodec.encode(testSegment, mockBuffer)
 
         val decodedSegment = segmentCodec.decode(mockBuffer)
 
-        verify { encodeBlock(testSegment, any(), mockBuffer) }
-        verify { decodeBlock(any(), mockBuffer, decodedSegment) }
+        verify { mockEncodeSegmentSpec(testSegment, any(), mockBuffer) }
+        verify { mockDecodeSegmentSpec(any(), mockBuffer, decodedSegment) }
 
-        confirmVerified(encodeBlock, decodeBlock)
+        confirmVerified(mockEncodeSegmentSpec, mockDecodeSegmentSpec)
     }
 
     @Test
