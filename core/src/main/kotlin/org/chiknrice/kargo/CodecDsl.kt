@@ -31,22 +31,31 @@ internal class ValueCodec<T : Any>(private val encodeSpec: EncodeSpec<T>, privat
     override fun decode(buffer: ByteBuffer) = decodeSpec(buffer)
 }
 
+internal fun <C : Any> createConfigDefinition(configClass: KClass<C>, defaults: ConfigSpec<C>) =
+        object : ConfigDefinition<C> {
+            override fun buildConfig(overrides: ConfigSpec<C>): C = try {
+                configClass.createInstance()
+            } catch (e: Exception) {
+                throw CodecConfigurationException("Failed to create configuration class instance: ${configClass.simpleName}", e)
+            }.apply(defaults).apply(overrides)
+        }
+
 internal class C<T : Any> : DefineCodecDsl<T> {
-    override infix fun <C : Any> withConfig(configClass: KClass<C>) = CC<T, C>(configClass)
+    override infix fun <C : Any> withConfig(configDefinition: ConfigDefinition<C>) = CC<T, C>(configDefinition)
 
     override infix fun thatEncodesBy(encodeSpec: EncodeSpec<T>) = CE(encodeSpec)
 
-    class CC<T : Any, C : Any>(private val configClass: KClass<C>) :
+    class CC<T : Any, C : Any>(private val configDefinition: ConfigDefinition<C>) :
             ConfigurableCodecDsl<T, C> {
-        override infix fun thatEncodesBy(encodeSpec: ConfigurableEncodeSpec<T, C>) = CCE(configClass, encodeSpec)
+        override infix fun thatEncodesBy(encodeSpec: ConfigurableEncodeSpec<T, C>) = CCE(configDefinition, encodeSpec)
 
-        class CCE<T : Any, C : Any>(private val configClass: KClass<C>,
+        class CCE<T : Any, C : Any>(private val configDefinition: ConfigDefinition<C>,
                                     private val encodeSpec: ConfigurableEncodeSpec<T, C>
         ) : AndDecodesByDsl<T, ConfigurableDecodeSpec<T, C>, ConfigurableCodecDefinition<T, C>> {
             override infix fun andDecodesBy(decodeSpec: ConfigurableDecodeSpec<T, C>) =
                     object : ConfigurableCodecDefinition<T, C> {
-                        override fun buildCodec(override: OverrideConfigSpec<C>) =
-                                configClass.createConfigInstance().apply(override).let { config ->
+                        override fun buildCodec(override: ConfigSpec<C>) =
+                                configDefinition.buildConfig(override).let { config ->
                                     ValueCodec({ value, buffer -> encodeSpec(value, buffer, config) },
                                             { buffer -> decodeSpec(buffer, config) })
                                 }
@@ -65,22 +74,22 @@ internal class C<T : Any> : DefineCodecDsl<T> {
 }
 
 internal class F<T : Any> : DefineCodecFilterDsl<T> {
-    override infix fun <C : Any> withConfig(configClass: KClass<C>) = FC<T, C>(configClass)
+    override infix fun <C : Any> withConfig(configDefinition: ConfigDefinition<C>) = FC<T, C>(configDefinition)
 
     override infix fun thatEncodesBy(filterEncodeSpec: FilterEncodeSpec<T>) = FE(filterEncodeSpec)
 
-    class FC<T : Any, C : Any>(private val configClass: KClass<C>) :
+    class FC<T : Any, C : Any>(private val configDefinition: ConfigDefinition<C>) :
             ConfigurableCodecFilterDsl<T, C> {
         override infix fun thatEncodesBy(filterEncodeSpec: ConfigurableFilterEncodeSpec<T, C>) =
-                FCE(configClass, filterEncodeSpec)
+                FCE(configDefinition, filterEncodeSpec)
 
-        class FCE<T : Any, C : Any>(private val configClass: KClass<C>,
+        class FCE<T : Any, C : Any>(private val configDefinition: ConfigDefinition<C>,
                                     private val filterEncodeSpec: ConfigurableFilterEncodeSpec<T, C>
         ) : AndDecodesByDsl<T, ConfigurableFilterDecodeSpec<T, C>, ConfigurableFilterDefinition<T, C>> {
             override infix fun andDecodesBy(filterDecodeSpec: ConfigurableFilterDecodeSpec<T, C>) =
                     object : ConfigurableFilterDefinition<T, C> {
-                        override fun wrapCodec(chain: Codec<T>, override: OverrideConfigSpec<C>) =
-                                configClass.createConfigInstance().apply(override).let { config ->
+                        override fun wrapCodec(chain: Codec<T>, override: ConfigSpec<C>) =
+                                configDefinition.buildConfig(override).let { config ->
                                     ValueCodec({ value, buffer ->
                                         filterEncodeSpec(value, buffer, config, chain)
                                     }, { buffer ->
@@ -119,11 +128,11 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
 
     class SCC<T : Any, C : Any>(private val codecDefinition: ConfigurableCodecDefinition<T, C>) :
             SegmentPropertyProvider<T>(), WrappedWithOrConfigWithDsl<T, C> {
-        private var overrideConfigSpec: OverrideConfigSpec<C> = {}
-        override infix fun withConfig(overrideConfigSpec: OverrideConfigSpec<C>) =
-                this.also { this.overrideConfigSpec = overrideConfigSpec }
+        private var configSpec: ConfigSpec<C> = {}
+        override infix fun withConfig(configSpec: ConfigSpec<C>) =
+                this.also { this.configSpec = configSpec }
 
-        override fun buildCodec() = codecDefinition.buildCodec(overrideConfigSpec)
+        override fun buildCodec() = codecDefinition.buildCodec(configSpec)
     }
 
     class SF<T : Any>(private val chain: Codec<T>, private val filterDefinition: FilterDefinition<T>) :
@@ -134,11 +143,11 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
     class SCF<T : Any, C : Any>(private val codec: Codec<T>,
                                 private val filterDefinition: ConfigurableFilterDefinition<T, C>) :
             SegmentPropertyProvider<T>(), WrappedWithOrConfigWithDsl<T, C>, ThenWithOrWithConfigDsl<T, C> {
-        private var overrideConfigSpec: OverrideConfigSpec<C> = {}
-        override infix fun withConfig(overrideConfigSpec: OverrideConfigSpec<C>) =
-                this.also { this.overrideConfigSpec = overrideConfigSpec }
+        private var configSpec: ConfigSpec<C> = {}
+        override infix fun withConfig(configSpec: ConfigSpec<C>) =
+                this.also { this.configSpec = configSpec }
 
-        override fun buildCodec() = filterDefinition.wrapCodec(codec, overrideConfigSpec)
+        override fun buildCodec() = filterDefinition.wrapCodec(codec, configSpec)
     }
 
     /**
@@ -218,19 +227,12 @@ internal class SC<T : Segment>(private val segmentClass: KClass<T>) : DefineSegm
                         "Segment class [${segmentClass.simpleName}] is required to have a segment property")
             }
         }
+
+        private fun <T : Segment> KClass<T>.createSegmentInstance() = try {
+            this.createInstance()
+        } catch (e: Exception) {
+            throw CodecConfigurationException("Failed to create segment class instance: ${this.simpleName}", e)
+        }
     }
 
 }
-
-internal fun <T : Any> KClass<T>.createConfigInstance() = try {
-    this.createInstance()
-} catch (e: Exception) {
-    throw CodecConfigurationException("Failed to create configuration class instance: ${this.simpleName}", e)
-}
-
-internal fun <T : Segment> KClass<T>.createSegmentInstance() = try {
-    this.createInstance()
-} catch (e: Exception) {
-    throw CodecConfigurationException("Failed to create segment class instance: ${this.simpleName}", e)
-}
-

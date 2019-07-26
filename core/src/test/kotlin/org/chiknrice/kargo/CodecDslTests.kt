@@ -70,8 +70,8 @@ class CodecDslTests {
     ) {
         class X(var a: Any)
 
-        val codecDefinition = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
-        assertThatThrownBy { codecDefinition.buildCodec {} }.isExactlyInstanceOf(CodecConfigurationException::class.java)
+        val codecDefinition = defineCodec<Any>() withConfig defineConfig<X>() thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        assertThatThrownBy { codecDefinition.buildCodec() }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Failed to create configuration class instance: X")
                 .hasCauseExactlyInstanceOf(IllegalArgumentException::class.java)
     }
@@ -84,8 +84,8 @@ class CodecDslTests {
         every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
         every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
-        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
-        val codec = codecDefinition.buildCodec {}
+        val codecDefinition = defineCodec<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codec = codecDefinition.buildCodec()
 
         codec.encode(testValue, mockBuffer)
         val encodeConfig = configArg.captured
@@ -107,18 +107,18 @@ class CodecDslTests {
     fun `A codec config override spec applies to the config`(
             @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
             @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
-            @MockK mockOverrideConfig: OverrideConfigSpec<Any>
+            @MockK mockConfigSpec: ConfigSpec<Any>
     ) {
-        every { capture(configArg).mockOverrideConfig() } just Runs
+        every { capture(configArg).mockConfigSpec() } just Runs
 
-        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
-        codecDefinition.buildCodec(mockOverrideConfig)
+        val codecDefinition = defineCodec<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        codecDefinition.buildCodec(mockConfigSpec)
 
         val config = configArg.captured
 
-        verify(exactly = 1) { config.mockOverrideConfig() }
+        verify(exactly = 1) { config.mockConfigSpec() }
 
-        confirmVerified(mockOverrideConfig)
+        confirmVerified(mockConfigSpec)
     }
 
 }
@@ -166,7 +166,7 @@ class FilterDslTests {
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockFilterDecodeSpec(mockBuffer, capture(configArg), mockCodec) } returns testValue
 
-        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val filterDefinition = defineFilter<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
         val codec = filterDefinition.wrapCodec(mockCodec) {}
 
         codec.encode(testValue, mockBuffer)
@@ -189,18 +189,18 @@ class FilterDslTests {
     fun `A codec filter config override spec applies to the config`(
             @MockK(relaxed = true) mockFilterEncodeSpec: ConfigurableFilterEncodeSpec<Any, Any>,
             @MockK(relaxed = true) mockFilterDecodeSpec: ConfigurableFilterDecodeSpec<Any, Any>,
-            @MockK mockOverrideConfig: OverrideConfigSpec<Any>
+            @MockK mockConfigSpec: ConfigSpec<Any>
     ) {
-        every { capture(configArg).mockOverrideConfig() } just Runs
+        every { capture(configArg).mockConfigSpec() } just Runs
 
-        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
-        filterDefinition.wrapCodec(mockCodec, mockOverrideConfig)
+        val filterDefinition = defineFilter<Any>() withConfig defineConfig(Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        filterDefinition.wrapCodec(mockCodec, mockConfigSpec)
 
         val config = configArg.captured
 
-        verify(exactly = 1) { config.mockOverrideConfig() }
+        verify(exactly = 1) { config.mockConfigSpec() }
 
-        confirmVerified(mockOverrideConfig)
+        confirmVerified(mockConfigSpec)
     }
 
 }

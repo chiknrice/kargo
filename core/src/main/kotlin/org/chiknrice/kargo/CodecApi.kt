@@ -93,7 +93,7 @@ typealias FilterDecodeSpec<T> = (buffer: ByteBuffer, chain: Decoder<T>) -> T
  * The contract of building a configurable codec for type T with an override of configuration of type C
  */
 interface ConfigurableCodecDefinition<T : Any, C : Any> {
-    fun buildCodec(override: OverrideConfigSpec<C>): Codec<T>
+    fun buildCodec(override: ConfigSpec<C> = {}): Codec<T>
 }
 
 /**
@@ -107,7 +107,7 @@ interface CodecDefinition<T : Any> {
  * The contract of filtering of a codec for type T with an override of filter's configuration of type C
  */
 interface ConfigurableFilterDefinition<T : Any, C : Any> {
-    fun wrapCodec(chain: Codec<T>, override: OverrideConfigSpec<C>): Codec<T>
+    fun wrapCodec(chain: Codec<T>, override: ConfigSpec<C>): Codec<T>
 }
 
 /**
@@ -118,9 +118,16 @@ interface FilterDefinition<T : Any> {
 }
 
 /**
+ * The contract of creating a configuration instance
+ */
+interface ConfigDefinition<C : Any> {
+    fun buildConfig(override: ConfigSpec<C> = {}): C
+}
+
+/**
  * The contract of (possibly) overriding defaults of a configuration of type C
  */
-typealias OverrideConfigSpec<C> = C.() -> Unit
+typealias ConfigSpec<C> = C.() -> Unit
 
 /**
  * Generic exception to represent any exceptional cases during encoding or decoding

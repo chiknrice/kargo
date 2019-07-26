@@ -299,7 +299,7 @@ class SegmentPropertyCodecTests {
         every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
         every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
-        val codecDefinition = defineCodec<Any>() withConfig Config::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codecDefinition = defineCodec<Any>() withConfig defineConfig<Config>() thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
 
         class X : Segment() {
             var a by defineProperty<Any>() using codecDefinition
@@ -423,7 +423,7 @@ class SegmentPropertyCodecFilterTests {
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockFilteredCodec) } just Runs
 
-        val lastFilterDefinition = defineFilter<Any>() withConfig Config::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val lastFilterDefinition = defineFilter<Any>() withConfig defineConfig<Config>() thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
 
         class W : Segment() {
             var a by defineProperty<Any>() using codecDefinition wrappedWith lastFilterDefinition
