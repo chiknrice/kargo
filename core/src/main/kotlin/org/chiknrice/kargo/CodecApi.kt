@@ -100,7 +100,7 @@ interface CodecDefinition<T : Any> {
  * The contract of optionally overriding configuration of type C of a codec for type T
  */
 interface ConfigurableCodecDefinition<T : Any, C : Any> : CodecDefinition<T> {
-    fun withOverrides(overrides: ConfigSpec<C>): CodecDefinition<T>
+    fun withOverrides(overrides: ConfigSpec<C>): ConfigurableCodecDefinition<T, C>
 }
 
 /**
@@ -114,14 +114,7 @@ interface FilterDefinition<T : Any> {
  * The contract of optionally overriding configuration of type C of a filter for type T
  */
 interface ConfigurableFilterDefinition<T : Any, C : Any> : FilterDefinition<T> {
-    fun withOverrides(overrides: ConfigSpec<C>): FilterDefinition<T>
-}
-
-/**
- * The contract of creating a configuration instance with an optional defaults config spec
- */
-interface ConfigDefinition<C : Any> {
-    fun buildConfig(defaults: ConfigSpec<C> = {}): C
+    fun withOverrides(overrides: ConfigSpec<C>): ConfigurableFilterDefinition<T, C>
 }
 
 /**

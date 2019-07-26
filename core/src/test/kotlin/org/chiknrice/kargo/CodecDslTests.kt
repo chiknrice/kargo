@@ -70,7 +70,7 @@ class CodecDslTests {
     ) {
         class X(var a: Any)
 
-        val codecDefinition = defineCodec<Any>() withConfig defineConfig<X>() thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codecDefinition = defineCodec<Any>() withConfig X::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
         assertThatThrownBy { codecDefinition.buildCodec() }.isExactlyInstanceOf(CodecConfigurationException::class.java)
                 .hasMessage("Failed to create configuration class instance: X")
                 .hasCauseExactlyInstanceOf(IllegalArgumentException::class.java)
@@ -84,8 +84,7 @@ class CodecDslTests {
         every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
         every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
-        val codecDefinition = defineCodec<Any>() withConfig defineConfig(
-                Any::class) thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
         val codec = codecDefinition.buildCodec()
 
         codec.encode(testValue, mockBuffer)
@@ -112,8 +111,7 @@ class CodecDslTests {
     ) {
         every { capture(configArg).mockConfigSpec() } just Runs
 
-        val codecDefinition = defineCodec<Any>() withConfig defineConfig(
-                Any::class) thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codecDefinition = defineCodec<Any>() withConfig Any::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
         codecDefinition.withOverrides(mockConfigSpec).buildCodec()
 
         val config = configArg.captured
@@ -121,6 +119,18 @@ class CodecDslTests {
         verify(exactly = 1) { config.mockConfigSpec() }
 
         confirmVerified(mockConfigSpec)
+    }
+
+    @Test
+    @Disabled
+    fun `A subsequent config override creates a new codec definition`() {
+        TODO("implement this")
+    }
+
+    @Test
+    @Disabled
+    fun `A subsequent config override supersedes the previous settings`() {
+        TODO("implement this")
     }
 
 }
@@ -168,8 +178,7 @@ class FilterDslTests {
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockFilterDecodeSpec(mockBuffer, capture(configArg), mockCodec) } returns testValue
 
-        val filterDefinition = defineFilter<Any>() withConfig defineConfig(
-                Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
         val codec = filterDefinition.wrapCodec(mockCodec)
 
         codec.encode(testValue, mockBuffer)
@@ -196,8 +205,7 @@ class FilterDslTests {
     ) {
         every { capture(configArg).mockConfigSpec() } just Runs
 
-        val filterDefinition = defineFilter<Any>() withConfig defineConfig(
-                Any::class) thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val filterDefinition = defineFilter<Any>() withConfig Any::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
         filterDefinition.withOverrides(mockConfigSpec).wrapCodec(mockCodec)
 
         val config = configArg.captured

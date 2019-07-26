@@ -40,7 +40,7 @@ interface DefineCodecFilterDsl<T : Any> :
  * The contract of defining a configuration for a codec
  */
 interface CodecWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configDefinition: ConfigDefinition<C>):
+    infix fun <C : Any> withConfig(configClass: KClass<C>):
             ConfigurableCodecDsl<T, C>
 }
 
@@ -54,7 +54,7 @@ typealias ConfigurableCodecDsl<T, C> =
  * The contract of defining a configuration for a codec filter
  */
 interface CodecFilterWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configDefinition: ConfigDefinition<C>):
+    infix fun <C : Any> withConfig(configClass: KClass<C>):
             ConfigurableCodecFilterDsl<T, C>
 }
 
@@ -111,18 +111,6 @@ interface ThenWithDsl<T : Any> : DelegateProvider<T> {
  */
 interface DefineSegmentCodecDsl<T : Segment> :
         ThatEncodesByDsl<T, EncodeSegmentSpec<T>, DecodeSegmentSpec<T>, CodecDefinition<T>>
-
-/**
- * The entrypoint function for defining a config
- */
-fun <C : Any> defineConfig(configClass: KClass<C>, defaults: ConfigSpec<C> = {}): ConfigDefinition<C> =
-        createConfigDefinition(configClass, defaults)
-
-/**
- * A convenience idiomatic kotlin function delegating to defineConfig function
- */
-inline fun <reified C : Any> defineConfig(noinline defaults: ConfigSpec<C> = {}): ConfigDefinition<C> =
-        defineConfig(C::class, defaults)
 
 /**
  * The entrypoint function of defining a codec

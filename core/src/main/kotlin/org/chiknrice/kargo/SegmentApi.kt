@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-open abstract class Segment {
+abstract class Segment {
 
     internal val properties = mutableListOf<SegmentProperty<*>>()
 
