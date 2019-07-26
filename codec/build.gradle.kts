@@ -16,6 +16,6 @@
  *
  */
 
-rootProject.name = "kargo"
-
-include("core", "codec")
+dependencies {
+    implementation(project(":core"))
+}

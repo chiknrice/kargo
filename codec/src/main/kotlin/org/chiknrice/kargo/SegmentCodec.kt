@@ -16,6 +16,10 @@
  *
  */
 
-rootProject.name = "kargo"
+package org.chiknrice.kargo
 
-include("core", "codec")
+inline fun <reified T : Segment> simpleSegmentCodec() = defineSegmentCodec<T>() thatEncodesBy { _, segmentProperties, buffer ->
+    segmentProperties.forEach { it.encode(buffer) }
+} andDecodesBy { segmentProperties, buffer, _ ->
+    segmentProperties.forEach { it.decode(buffer) }
+}
