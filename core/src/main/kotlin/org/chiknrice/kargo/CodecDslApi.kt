@@ -22,74 +22,57 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-/**
- * The contract of what can be done after defineCodec function
- */
-interface DefineCodecDsl<T : Any> :
-        ThatEncodesByDsl<T, EncodeSpec<T>, DecodeSpec<T>, CodecDefinition<T>>,
-        CodecWithConfigDsl<T>
+@DslMarker
+annotation class KargoDsl
 
-/**
- * The contract of what can be done after defineCodecFilter function
- */
-interface DefineCodecFilterDsl<T : Any> :
-        ThatEncodesByDsl<T, FilterEncodeSpec<T>, FilterDecodeSpec<T>, FilterDefinition<T>>,
-        CodecFilterWithConfigDsl<T>
-
-/**
- * The contract of defining a configuration for a codec
- */
-interface CodecWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configClass: KClass<C>):
-            ConfigurableCodecDsl<T, C>
+@KargoDsl
+interface DefinitionDsl<T : Any, E : Any, D : Any> {
+    fun encode(encodeSpec: E)
+    fun decode(decodeSpec: D)
 }
 
-/**
- * The contract of optionally overriding configuration of type C of a codec for type T
- */
-interface OverridableCodecConfigDsl<T : Any, C : Any> : CodecDefinition<T> {
-    fun withOverrides(overrides: ConfigSpec<C>): OverridableCodecConfigDsl<T, C>
+@KargoDsl
+interface ConfigurableDefinitionDsl<T : Any, C : Any, E : Any, D : Any> : DefinitionDsl<T, E, D> {
+    fun config(configSpec: ConfigSpec<C>)
 }
 
-typealias ConfigurableCodecDsl<T, C> =
-        ThatEncodesByDsl<T,
-                ConfigurableEncodeSpec<T, C>,
-                ConfigurableDecodeSpec<T, C>,
-                OverridableCodecConfigDsl<T, C>>
+typealias CodecDefinitionDsl<T> = DefinitionDsl<T, EncodeSpec<T>, DecodeSpec<T>>
+typealias ConfigurableCodecDefinitionDsl<T, C> = ConfigurableDefinitionDsl<T, C, ConfigurableEncodeSpec<T, C>,
+        ConfigurableDecodeSpec<T, C>>
 
-/**
- * The contract of defining a configuration for a codec filter
- */
-interface CodecFilterWithConfigDsl<T : Any> {
-    infix fun <C : Any> withConfig(configClass: KClass<C>):
-            ConfigurableCodecFilterDsl<T, C>
-}
+typealias FilterDefinitionDsl<T> = DefinitionDsl<T, FilterEncodeSpec<T>, FilterDecodeSpec<T>>
+typealias ConfigurableFilterDefinitionDsl<T, C> = ConfigurableDefinitionDsl<T, C, ConfigurableFilterEncodeSpec<T, C>,
+        ConfigurableFilterDecodeSpec<T, C>>
 
-/**
- * The contract of optionally overriding configuration of type C of a filter for type T
- */
-interface OverridableFilterConfigDsl<T : Any, C : Any> : FilterDefinition<T> {
-    fun withOverrides(overrides: ConfigSpec<C>): OverridableFilterConfigDsl<T, C>
-}
+typealias SegmentCodecDefinitionDsl<T> = DefinitionDsl<T, EncodeSegmentSpec<T>, DecodeSegmentSpec<T>>
 
-typealias ConfigurableCodecFilterDsl<T, C> =
-        ThatEncodesByDsl<T,
-                ConfigurableFilterEncodeSpec<T, C>,
-                ConfigurableFilterDecodeSpec<T, C>,
-                OverridableFilterConfigDsl<T, C>>
+@KargoDsl
+abstract class Definition {
+    fun <T : Any> codec(codecSpec: CodecDefinitionDsl<T>.() -> Unit) =
+            CodecDefinitionDslImpl<T>().apply(codecSpec).build()
 
-/**
- * The contract of defining an encode specification
- */
-interface ThatEncodesByDsl<T : Any, E, D, R> {
-    infix fun thatEncodesBy(encodeSpec: E): AndDecodesByDsl<T, D, R>
-}
+    fun <T : Any, C : Any> codec(configClass: KClass<C>, codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
+            ConfigurableCodecDefinitionDslImpl<T, C>(configClass).apply(codecSpec).build()
 
-/**
- * The contract of defining a decode specification
- */
-interface AndDecodesByDsl<T : Any, D, R> {
-    infix fun andDecodesBy(decodeSpec: D): R
+    inline fun <T : Any, reified C : Any> codec(noinline codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
+            codec(C::class, codecSpec)
+
+    fun <T : Any> filter(filterSpec: FilterDefinitionDsl<T>.() -> Unit) =
+            FilterDefinitionDslImpl<T>().apply(filterSpec).build()
+
+    fun <T : Any, C : Any> filter(configClass: KClass<C>,
+                                  filterSpec: ConfigurableFilterDefinitionDsl<T, C>.() -> Unit) =
+            ConfigurableFilterDefinitionDslImpl<T, C>(configClass).apply(filterSpec).build()
+
+    inline fun <T : Any, reified C : Any> filter(
+            noinline filterSpec: ConfigurableFilterDefinitionDsl<T, C>.() -> Unit) =
+            filter(C::class, filterSpec)
+
+    fun <T : Segment> segmentCodec(segmentClass: KClass<T>, codecSpec: SegmentCodecDefinitionDsl<T>.() -> Unit) =
+            SegmentCodecDefinitionDslImpl(segmentClass).apply(codecSpec).build()
+
+    inline fun <reified T : Segment> segmentCodec(noinline codecSpec: SegmentCodecDefinitionDsl<T>.() -> Unit) =
+            segmentCodec(T::class, codecSpec)
 }
 
 /**
@@ -121,32 +104,6 @@ interface ThenWithDsl<T : Any> : DelegateProvider<T> {
 }
 
 /**
- * The contract of what can be done after defineSegmentCodec function
- */
-interface DefineSegmentCodecDsl<T : Segment> :
-        ThatEncodesByDsl<T, EncodeSegmentSpec<T>, DecodeSegmentSpec<T>, CodecDefinition<T>>
-
-/**
- * The entrypoint function of defining a codec
- */
-fun <T : Any> defineCodec(): DefineCodecDsl<T> = C()
-
-/**
- * The entrypoint function of defining a codec filter
- */
-fun <T : Any> defineFilter(): DefineCodecFilterDsl<T> = F()
-
-/**
  * The entrypoint function of defining a segment property
  */
 fun <T : Any> defineProperty(): DefineSegmentPropertyDsl<T> = S()
-
-/**
- * The entrypoint function of defining a segment codec
- */
-fun <T : Segment> defineSegmentCodec(segmentClass: KClass<T>): DefineSegmentCodecDsl<T> = SC(segmentClass)
-
-/**
- * A convenience idiomatic kotlin function delegating to defineSegmentCodec function
- */
-inline fun <reified T : Segment> defineSegmentCodec(): DefineSegmentCodecDsl<T> = defineSegmentCodec(T::class)

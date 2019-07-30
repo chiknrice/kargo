@@ -20,11 +20,17 @@ package org.chiknrice.kargo
 
 import kotlin.reflect.KClass
 
-fun <T : Segment> simpleSegmentCodec(segmentClass: KClass<T>) = defineSegmentCodec(
-        segmentClass) thatEncodesBy { _, segmentProperties, buffer ->
-    segmentProperties.forEach { it.encode(buffer) }
-} andDecodesBy { segmentProperties, buffer, _ ->
-    segmentProperties.forEach { it.decode(buffer) }
-}
+object SegmentCodecs : Definition() {
 
-inline fun <reified T : Segment> simpleSegmentCodec() = simpleSegmentCodec(T::class)
+    fun <T : Segment> simple(segmentClass: KClass<T>) = segmentCodec(segmentClass) {
+        encode { _, segmentProperties, buffer ->
+            segmentProperties.forEach { it.encode(buffer) }
+        }
+        decode { segmentProperties, buffer, _ ->
+            segmentProperties.forEach { it.decode(buffer) }
+        }
+    }
+
+    inline fun <reified T : Segment> simple() = simple(T::class)
+
+}

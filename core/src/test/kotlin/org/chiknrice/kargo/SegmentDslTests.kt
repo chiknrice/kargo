@@ -299,10 +299,15 @@ class SegmentPropertyCodecTests {
         every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
         every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
-        val codecDefinition = defineCodec<Any>() withConfig Config::class thatEncodesBy mockEncodeSpec andDecodesBy mockDecodeSpec
+        val codecs = object : Definition() {
+            val codecDefinition = codec<Any, Config> {
+                encode(mockEncodeSpec)
+                decode(mockDecodeSpec)
+            }
+        }
 
         class X : Segment() {
-            var a by defineProperty<Any>() using codecDefinition
+            var a by defineProperty<Any>() using codecs.codecDefinition
         }
 
         val x = X()
@@ -312,7 +317,7 @@ class SegmentPropertyCodecTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecDefinition.withOverrides { length = 10 }
+            var a by defineProperty<Any>() using codecs.codecDefinition.withOverrides { length = 10 }
         }
 
         val y = Y()
@@ -423,10 +428,15 @@ class SegmentPropertyCodecFilterTests {
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockFilteredCodec) } just Runs
 
-        val lastFilterDefinition = defineFilter<Any>() withConfig Config::class thatEncodesBy mockFilterEncodeSpec andDecodesBy mockFilterDecodeSpec
+        val filters = object : Definition() {
+            val lastFilterDefinition = filter<Any, Config> {
+                encode(mockFilterEncodeSpec)
+                decode(mockFilterDecodeSpec)
+            }
+        }
 
         class W : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith lastFilterDefinition
+            var a by defineProperty<Any>() using codecDefinition wrappedWith filters.lastFilterDefinition
         }
 
         val w = W()
@@ -436,7 +446,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class X : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith lastFilterDefinition
+            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith filters.lastFilterDefinition
         }
 
         val x = X()
@@ -446,7 +456,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith lastFilterDefinition.withOverrides { length = 10 }
+            var a by defineProperty<Any>() using codecDefinition wrappedWith filters.lastFilterDefinition.withOverrides { length = 10 }
         }
 
         val y = Y()
@@ -456,7 +466,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(10)
 
         class Z : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith lastFilterDefinition.withOverrides { length = 10 }
+            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith filters.lastFilterDefinition.withOverrides { length = 10 }
         }
 
         val z = Z()

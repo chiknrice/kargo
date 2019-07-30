@@ -97,10 +97,24 @@ interface CodecDefinition<T : Any> {
 }
 
 /**
+ * The contract of optionally overriding configuration of type C of a codec for type T
+ */
+interface ConfigurableCodecDefinition<T : Any, C : Any> : CodecDefinition<T> {
+    fun withOverrides(overrides: ConfigSpec<C>): ConfigurableCodecDefinition<T, C>
+}
+
+/**
  * The contract of filtering a codec for type T
  */
 interface FilterDefinition<T : Any> {
     fun wrapCodec(chain: Codec<T>): Codec<T>
+}
+
+/**
+ * The contract of optionally overriding configuration of type C of a filter for type T
+ */
+interface ConfigurableFilterDefinition<T : Any, C : Any> : FilterDefinition<T> {
+    fun withOverrides(overrides: ConfigSpec<C>): ConfigurableFilterDefinition<T, C>
 }
 
 /**
@@ -116,7 +130,6 @@ class CodecException : RuntimeException {
     constructor(message: String, cause: Throwable) : super(message, cause)
 }
 
-class CodecConfigurationException : RuntimeException {
+class CodecDefinitionException : RuntimeException {
     constructor(message: String) : super(message)
-    constructor(message: String, cause: Throwable) : super(message, cause)
 }

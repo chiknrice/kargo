@@ -65,7 +65,7 @@ class SimpleSegmentCodecTests {
         x.b = b
         x.c = c
 
-        val segmentCodec = simpleSegmentCodec<X>().buildCodec()
+        val segmentCodec = SegmentCodecs.simple<X>().buildCodec()
         segmentCodec.encode(x, mockBuffer)
         segmentCodec.decode(mockBuffer)
 
