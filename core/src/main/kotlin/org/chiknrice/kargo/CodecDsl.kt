@@ -147,9 +147,9 @@ internal class ConfigurableCodecDefinitionDslImpl<T : Any, C : Any>(configClass:
 internal class FilterDefinitionDslImpl<T : Any> :
         DefinitionDslImpl<T, FilterEncodeSpec<T>, FilterDecodeSpec<T>, FilterDefinition<T>>() {
     override fun buildDefinition() = object : FilterDefinition<T> {
-        override fun wrapCodec(chain: Codec<T>) = object : Codec<T> {
-            override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, chain)
-            override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, chain)
+        override fun wrapCodec(codec: Codec<T>) = object : Codec<T> {
+            override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, codec)
+            override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, codec)
         }
     }
 }
@@ -171,10 +171,10 @@ internal class ConfigurableFilterDefinitionDslImpl<T : Any, C : Any>(configClass
                 ConfigurableFilterDefinitionImpl(configClass, configSpecs.plusElement(overrides), encodeSpec,
                         decodeSpec)
 
-        override fun wrapCodec(chain: Codec<T>) = configClass.createConfigInstance(configSpecs).let {
+        override fun wrapCodec(codec: Codec<T>) = configClass.createConfigInstance(configSpecs).let {
             object : Codec<T> {
-                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, it, chain)
-                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, it, chain)
+                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, it, codec)
+                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, it, codec)
             }
         }
     }
@@ -228,9 +228,9 @@ internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
         override fun buildCodec() = codecDefinition.buildCodec()
     }
 
-    class SF<T : Any>(private val chain: Codec<T>, private val filterDefinition: FilterDefinition<T>) :
+    class SF<T : Any>(private val codec: Codec<T>, private val filterDefinition: FilterDefinition<T>) :
             SegmentPropertyProvider<T>() {
-        override fun buildCodec() = filterDefinition.wrapCodec(chain)
+        override fun buildCodec() = filterDefinition.wrapCodec(codec)
     }
 
     /**

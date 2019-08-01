@@ -72,22 +72,22 @@ typealias DecodeSegmentSpec<T> = (segmentProperties: SegmentProperties, buffer: 
 /**
  * The contract of filtering an encoder when encoding a value of type T based on a configuration of type C
  */
-typealias ConfigurableFilterEncodeSpec<T, C> = (value: T, buffer: ByteBuffer, config: C, chain: Encoder<T>) -> Unit
+typealias ConfigurableFilterEncodeSpec<T, C> = (value: T, buffer: ByteBuffer, config: C, encoder: Encoder<T>) -> Unit
 
 /**
  * The contract of filtering a decoder when decoding a value of type T based on a configuration of type C
  */
-typealias ConfigurableFilterDecodeSpec<T, C> = (buffer: ByteBuffer, config: C, chain: Decoder<T>) -> T
+typealias ConfigurableFilterDecodeSpec<T, C> = (buffer: ByteBuffer, config: C, decoder: Decoder<T>) -> T
 
 /**
  * The contract of filtering an encoder when encoding a value of type T
  */
-typealias FilterEncodeSpec<T> = (value: T, buffer: ByteBuffer, chain: Encoder<T>) -> Unit
+typealias FilterEncodeSpec<T> = (value: T, buffer: ByteBuffer, encoder: Encoder<T>) -> Unit
 
 /**
  * The contract of filtering a decoder when decoding a value of type T
  */
-typealias FilterDecodeSpec<T> = (buffer: ByteBuffer, chain: Decoder<T>) -> T
+typealias FilterDecodeSpec<T> = (buffer: ByteBuffer, decoder: Decoder<T>) -> T
 
 /**
  * The contract of building a codec for type T
@@ -107,7 +107,7 @@ interface ConfigurableCodecDefinition<T : Any, C : Any> : CodecDefinition<T> {
  * The contract of filtering a codec for type T
  */
 interface FilterDefinition<T : Any> {
-    fun wrapCodec(chain: Codec<T>): Codec<T>
+    fun wrapCodec(codec: Codec<T>): Codec<T>
 }
 
 /**
