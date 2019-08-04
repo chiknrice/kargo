@@ -84,8 +84,8 @@ internal abstract class ConfigurableDefinitionDslImpl<T : Any, C : Any, E : Any,
         validator.addValidation { errors ->
             try {
                 configClass.createInstance()
-            } catch (e: IllegalArgumentException) {
-                if (e.message != null && e.message!!.startsWith("Class should have a single no-arg constructor"))
+            } catch (e: Exception) {
+                if (e.message != null && e.message!!.contains("should have a single no-arg constructor"))
                     errors.add("Configuration class ${configClass.simpleName} does not have a no-arg constructor")
                 else throw e
             }
@@ -157,8 +157,8 @@ internal class SegmentCodecDefinitionDslImpl<T : Segment>(private val segmentCla
                 if (instance.properties.isEmpty()) {
                     errors.add("Segment class [${segmentClass.simpleName}] is required to have a segment property")
                 }
-            } catch (e: IllegalArgumentException) {
-                if (e.message != null && e.message!!.startsWith("Class should have a single no-arg constructor"))
+            } catch (e: Exception) {
+                if (e.message != null && e.message!!.contains("should have a single no-arg constructor"))
                     errors.add("Segment class ${segmentClass.simpleName} does not have a no-arg constructor")
                 else throw e
             }
