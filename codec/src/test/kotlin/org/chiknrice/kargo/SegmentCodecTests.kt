@@ -51,9 +51,9 @@ class SimpleSegmentCodecTests {
             @MockK(relaxed = true) mockBuffer: ByteBuffer
     ) {
         class X : Segment() {
-            var a by defineProperty<Any>() using mockCodecADef
-            var b by defineProperty<Any>() using mockCodecBDef
-            var c by defineProperty<Any>() using mockCodecCDef
+            var a by codec(mockCodecADef)
+            var b by codec(mockCodecBDef)
+            var c by codec(mockCodecCDef)
         }
 
         val a = Any()

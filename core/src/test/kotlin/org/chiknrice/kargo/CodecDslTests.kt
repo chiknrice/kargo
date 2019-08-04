@@ -178,7 +178,7 @@ class IncompleteDefinitionTests {
             @MockK(relaxed = true) mockDecodeSpec: DecodeSegmentSpec<Any>
     ) {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockCodecDefinition
+            var a by codec(staticMockCodecDefinition)
         }
 
         with(object : Definition() {}) {
@@ -280,28 +280,15 @@ class MultiDeclarationTests {
             assertThatThrownBy {
                 codec<Any, Any> {
                     encode(mockEncodeSpec)
-                    decode(mockDecodeSpec)
-                    config {}
-                    config {}
-                }
-            }.isExactlyInstanceOf(CodecDefinitionException::class.java)
-                    .hasMessage("Config spec declared multiple times")
-
-            assertThatThrownBy {
-                codec<Any, Any> {
-                    encode(mockEncodeSpec)
                     encode(mockEncodeSpec)
                     decode(mockDecodeSpec)
                     decode(mockDecodeSpec)
-                    config {}
-                    config {}
                 }
             }.isExactlyInstanceOf(CodecDefinitionException::class.java)
                     .hasMessage("""
                         Errors:
                          - Encode spec declared multiple times
                          - Decode spec declared multiple times
-                         - Config spec declared multiple times
                     """.trimIndent())
         }
     }
@@ -373,28 +360,15 @@ class MultiDeclarationTests {
             assertThatThrownBy {
                 filter<Any, Any> {
                     encode(mockEncodeSpec)
-                    decode(mockDecodeSpec)
-                    config {}
-                    config {}
-                }
-            }.isExactlyInstanceOf(CodecDefinitionException::class.java)
-                    .hasMessage("Config spec declared multiple times")
-
-            assertThatThrownBy {
-                filter<Any, Any> {
-                    encode(mockEncodeSpec)
                     encode(mockEncodeSpec)
                     decode(mockDecodeSpec)
                     decode(mockDecodeSpec)
-                    config {}
-                    config {}
                 }
             }.isExactlyInstanceOf(CodecDefinitionException::class.java)
                     .hasMessage("""
                         Errors:
                          - Encode spec declared multiple times
                          - Decode spec declared multiple times
-                         - Config spec declared multiple times
                     """.trimIndent())
         }
     }
@@ -405,7 +379,7 @@ class MultiDeclarationTests {
             @MockK(relaxed = true) mockDecodeSpec: DecodeSegmentSpec<Any>
     ) {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockCodecDefinition
+            var a by codec(staticMockCodecDefinition)
         }
 
         with(object : Definition() {}) {
@@ -504,11 +478,11 @@ class RequiredNoArgConstructorTests {
             @MockK(relaxed = true) mockDecodeSpec: DecodeSegmentSpec<Any>
     ) {
         class X(val a: Any = Any()) : Segment() {
-            var b by defineProperty<Any>() using staticMockCodecDefinition
+            var b by codec(staticMockCodecDefinition)
         }
 
         class Y(val a: Any) : Segment() {
-            var b by defineProperty<Any>() using staticMockCodecDefinition
+            var b by codec(staticMockCodecDefinition)
         }
 
         with(object : Definition() {}) {
@@ -604,7 +578,7 @@ class CodecDslTests {
     }
 
     @Test
-    fun `An initial codec config spec applies to the config`(
+    fun `An codec config spec applies to the config`(
             @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
             @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
             @MockK mockConfigSpec: ConfigSpec<Any>
@@ -612,10 +586,9 @@ class CodecDslTests {
         every { capture(configArg).mockConfigSpec() } just Runs
 
         val codecs = object : Definition() {
-            val codecDefinition = codec<Any, Any> {
+            val codecDefinition = codec<Any, Any>(mockConfigSpec) {
                 encode(mockEncodeSpec)
                 decode(mockDecodeSpec)
-                config(mockConfigSpec)
             }
         }
 
@@ -626,60 +599,6 @@ class CodecDslTests {
         verify(exactly = 1) { config.mockConfigSpec() }
 
         confirmVerified(mockConfigSpec)
-    }
-
-    @Test
-    fun `A codec config override spec applies to the config`(
-            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
-            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
-            @MockK mockConfigSpec: ConfigSpec<Any>
-    ) {
-        every { capture(configArg).mockConfigSpec() } just Runs
-
-        val codecs = object : Definition() {
-            val codecDefinition = codec<Any, Any> {
-                encode(mockEncodeSpec)
-                decode(mockDecodeSpec)
-            }
-        }
-
-        codecs.codecDefinition.withOverrides(mockConfigSpec).buildCodec()
-
-        val config = configArg.captured
-
-        verify(exactly = 1) { config.mockConfigSpec() }
-
-        confirmVerified(mockConfigSpec)
-    }
-
-    @Test
-    fun `A codec config override applies to the config after the initial config specification is applied`(
-            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
-            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
-            @MockK mockConfigSpec: ConfigSpec<Any>,
-            @MockK mockConfigOverrideSpec: ConfigSpec<Any>
-    ) {
-        every { capture(configArg).mockConfigSpec() } just Runs
-        every { capture(configArg).mockConfigOverrideSpec() } just Runs
-
-        val codecs = object : Definition() {
-            val codecDefinition = codec<Any, Any> {
-                encode(mockEncodeSpec)
-                decode(mockDecodeSpec)
-                config(mockConfigSpec)
-            }
-        }
-
-        codecs.codecDefinition.withOverrides(mockConfigOverrideSpec).buildCodec()
-
-        val config = configArg.captured
-
-        verifySequence {
-            config.mockConfigSpec()
-            config.mockConfigOverrideSpec()
-        }
-
-        confirmVerified(mockConfigSpec, mockConfigOverrideSpec)
     }
 
     @Test
@@ -717,12 +636,9 @@ class CodecDslTests {
         every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
 
         val codecs = object : Definition() {
-            val codecDefinition = codec<Any, X> {
+            val codecDefinition = codec<Any, X>({ b = "overridden" }) {
                 encode(mockEncodeSpec)
                 decode(mockDecodeSpec)
-                config {
-                    b = "overridden"
-                }
             }
         }
 
@@ -731,92 +647,6 @@ class CodecDslTests {
         codec.encode(testValue, mockBuffer)
         val config = configArg.captured
         assertThat(config).isEqualTo(X(b = "overridden"))
-    }
-
-    @Test
-    fun `A codec created from the original definition is not affected by a prior config override`(
-            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
-            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
-    ) {
-        class X(var a: Int = 1)
-
-        val configArg = slot<X>()
-        every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
-
-        val codecs = object : Definition() {
-            val codecDefinition = codec<Any, X> {
-                encode(mockEncodeSpec)
-                decode(mockDecodeSpec)
-            }
-            val overriddenCodecDefinition = codecDefinition.withOverrides { a = 2 }
-        }
-        val originalCodec = codecs.codecDefinition.buildCodec()
-        val overriddenCodec = codecs.overriddenCodecDefinition.buildCodec()
-
-        originalCodec.encode(testValue, mockBuffer)
-        val originalEncodeConfig = configArg.captured
-        assertThat(originalEncodeConfig.a).isEqualTo(1)
-
-        overriddenCodec.encode(testValue, mockBuffer)
-        val overriddenEncodeConfig = configArg.captured
-        assertThat(overriddenEncodeConfig.a).isEqualTo(2)
-
-        verifySequence {
-            mockEncodeSpec(testValue, mockBuffer, originalEncodeConfig)
-            mockEncodeSpec(testValue, mockBuffer, overriddenEncodeConfig)
-        }
-
-        confirmVerified(mockEncodeSpec)
-    }
-
-    @Test
-    fun `A subsequent config override creates a new codec definition`(
-            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
-            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
-    ) {
-        class X(var a: Int = 1)
-
-        val codecs = object : Definition() {
-            val codecDefinition = codec<Any, X> {
-                encode(mockEncodeSpec)
-                decode(mockDecodeSpec)
-            }
-            val overriddenCodecDefinition = codecDefinition.withOverrides {}
-        }
-
-        with(codecs) {
-            assertThat(overriddenCodecDefinition).isNotSameAs(codecDefinition)
-        }
-    }
-
-    @Test
-    fun `A subsequent config override creates another definition which supersedes the previous settings`(
-            @MockK mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
-            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>
-    ) {
-        class X(var a: Int = 1)
-
-        val configArg = slot<X>()
-        every { mockEncodeSpec(testValue, mockBuffer, capture(configArg)) } just Runs
-
-        val codecs = object : Definition() {
-            val codecDefinition = codec<Any, X> {
-                encode(mockEncodeSpec)
-                decode(mockDecodeSpec)
-                config {
-                    a = 2
-                }
-            }
-            val overriddenDefinition = codecDefinition.withOverrides { a = 5 }
-        }
-
-        val overriddenCodec = codecs.overriddenDefinition.buildCodec()
-
-        overriddenCodec.encode(testValue, mockBuffer)
-
-        val overriddenEncodeConfig = configArg.captured
-
-        assertThat(overriddenEncodeConfig.a).isEqualTo(5)
     }
 
 }
@@ -894,7 +724,7 @@ class FilterDslTests {
     }
 
     @Test
-    fun `A codec filter config override spec applies to the config`(
+    fun `A codec filter config spec applies to the config`(
             @MockK(relaxed = true) mockFilterEncodeSpec: ConfigurableFilterEncodeSpec<Any, Any>,
             @MockK(relaxed = true) mockFilterDecodeSpec: ConfigurableFilterDecodeSpec<Any, Any>,
             @MockK mockConfigSpec: ConfigSpec<Any>
@@ -902,12 +732,13 @@ class FilterDslTests {
         every { capture(configArg).mockConfigSpec() } just Runs
 
         val filters = object : Definition() {
-            val filterDefinition = filter<Any, Any> {
+            val filterDefinition = filter<Any, Any>(mockConfigSpec) {
                 encode(mockFilterEncodeSpec)
                 decode(mockFilterDecodeSpec)
             }
         }
-        filters.filterDefinition.withOverrides(mockConfigSpec).wrapCodec(mockCodec)
+
+        filters.filterDefinition.wrapCodec(mockCodec)
 
         val config = configArg.captured
 
@@ -931,10 +762,10 @@ class SegmentCodecDslTests {
     @Test
     fun `Defining a segment codec for a segment class having segment properties assigned and not delegated results in exception`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockCodecDefinition
+            var a by codec(staticMockCodecDefinition)
             var b = Any()
-            var c = defineProperty<Any>() using staticMockCodecDefinition
-            var d = defineProperty<Any>() using staticMockCodecDefinition
+            var c = codec(staticMockCodecDefinition)
+            var d = codec(staticMockCodecDefinition)
         }
         assertThatThrownBy {
             object : Definition() {
@@ -966,7 +797,7 @@ class SegmentCodecDslTests {
     @Test
     fun `Segment codec delegates to the defined encode and decode specs passing an instance of the segment class`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using staticMockCodecDefinition
+            var a by codec(staticMockCodecDefinition)
         }
 
         val codecs = object : Definition() {
@@ -993,6 +824,41 @@ class SegmentCodecDslTests {
     // Change to test showing that segment properties are replaced with new instance
     fun `Root segment codec resets all values prior to decoding`() {
         TODO("implement this")
+    }
+
+    @Test
+    fun `Filters are applied to the codec from right to left`(
+            @MockK mockCodecDefinition: CodecDefinition<Any>,
+            @MockK mockFilterDefinition1: FilterDefinition<Any>,
+            @MockK mockFilterDefinition2: FilterDefinition<Any>,
+            @MockK mockFilterDefinition3: FilterDefinition<Any>,
+            @MockK(relaxed = true) mockCodec0: Codec<Any>,
+            @MockK(relaxed = true) mockCodec1: Codec<Any>,
+            @MockK(relaxed = true) mockCodec2: Codec<Any>,
+            @MockK(relaxed = true) mockCodec3: Codec<Any>
+    ) {
+        every { mockCodecDefinition.buildCodec() } returns mockCodec0
+        every { mockFilterDefinition1.wrapCodec(mockCodec0) } returns mockCodec1
+        every { mockFilterDefinition2.wrapCodec(mockCodec1) } returns mockCodec2
+        every { mockFilterDefinition3.wrapCodec(mockCodec2) } returns mockCodec3
+
+        val definitions = object : Definition() {
+            val codecDefinition = chain(mockFilterDefinition3, mockFilterDefinition2,
+                    mockFilterDefinition1) filters mockCodecDefinition
+        }
+
+        val codec = definitions.codecDefinition.buildCodec()
+
+        assertThat(codec).isSameAs(mockCodec3)
+
+        verifySequence {
+            mockCodecDefinition.buildCodec()
+            mockFilterDefinition1.wrapCodec(mockCodec0)
+            mockFilterDefinition2.wrapCodec(mockCodec1)
+            mockFilterDefinition3.wrapCodec(mockCodec2)
+        }
+
+        confirmVerified(mockCodecDefinition, mockFilterDefinition1, mockFilterDefinition2, mockFilterDefinition3)
     }
 
 }

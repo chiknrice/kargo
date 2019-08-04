@@ -19,18 +19,9 @@
 package org.chiknrice.kargo
 
 import java.nio.ByteBuffer
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.*
-
-internal fun <C : Any> KClass<C>.createConfigInstance(overridesChain: List<ConfigSpec<C>>) =
-        this.createInstance().also { config ->
-            overridesChain.forEach {
-                config.apply(it)
-            }
-        }
 
 internal class Validator {
     private val deferredValidations = mutableListOf<(MutableList<String>) -> Unit>()
@@ -88,7 +79,7 @@ internal abstract class DefinitionDslImpl<T : Any, E : Any, D : Any, R : Any> : 
 }
 
 internal abstract class ConfigurableDefinitionDslImpl<T : Any, C : Any, E : Any, D : Any, R : Any>(
-        val configClass: KClass<C>) : ConfigurableDefinitionDsl<T, C, E, D>, DefinitionDslImpl<T, E, D, R>() {
+        val configClass: KClass<C>, val configSpec: ConfigSpec<C>) : DefinitionDslImpl<T, E, D, R>() {
     init {
         validator.addValidation { errors ->
             try {
@@ -96,15 +87,9 @@ internal abstract class ConfigurableDefinitionDslImpl<T : Any, C : Any, E : Any,
             } catch (e: IllegalArgumentException) {
                 if (e.message != null && e.message!!.startsWith("Class should have a single no-arg constructor"))
                     errors.add("Configuration class ${configClass.simpleName} does not have a no-arg constructor")
+                else throw e
             }
         }
-    }
-
-    var configSpecs: List<ConfigSpec<C>> = emptyList()
-
-    final override fun config(configSpec: ConfigSpec<C>) {
-        if (configSpecs.isNotEmpty()) validator.addError("Config spec declared multiple times")
-        configSpecs = listOf(configSpec)
     }
 }
 
@@ -118,29 +103,21 @@ internal class CodecDefinitionDslImpl<T : Any> :
     }
 }
 
-internal class ConfigurableCodecDefinitionDslImpl<T : Any, C : Any>(configClass: KClass<C>) :
+internal class ConfigurableCodecDefinitionDslImpl<T : Any, C : Any>(configClass: KClass<C>, configSpec: ConfigSpec<C>) :
         ConfigurableDefinitionDslImpl<T, C,
                 ConfigurableEncodeSpec<T, C>,
                 ConfigurableDecodeSpec<T, C>,
-                ConfigurableCodecDefinition<T, C>>(configClass),
+                CodecDefinition<T>>(configClass, configSpec),
         ConfigurableCodecDefinitionDsl<T, C> {
-    override fun buildDefinition(): ConfigurableCodecDefinition<T, C> =
-            ConfigurableCodecDefinitionImpl(configClass, configSpecs, encodeSpec, decodeSpec)
-
-    class ConfigurableCodecDefinitionImpl<T : Any, C : Any>(private val configClass: KClass<C>,
-                                                            private val configSpecs: List<ConfigSpec<C>>,
-                                                            private val encodeSpec: ConfigurableEncodeSpec<T, C>,
-                                                            private val decodeSpec: ConfigurableDecodeSpec<T, C>) :
-            ConfigurableCodecDefinition<T, C> {
-        override fun withOverrides(overrides: ConfigSpec<C>) =
-                ConfigurableCodecDefinitionImpl(configClass, configSpecs.plusElement(overrides), encodeSpec, decodeSpec)
-
-        override fun buildCodec() = configClass.createConfigInstance(configSpecs).let {
-            object : Codec<T> {
-                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, it)
-                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, it)
+    override fun buildDefinition() = object : CodecDefinition<T> {
+        override fun buildCodec(): Codec<T> {
+            val config = configClass.createInstance().apply(configSpec)
+            return object : Codec<T> {
+                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, config)
+                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, config)
             }
         }
+
     }
 }
 
@@ -154,27 +131,18 @@ internal class FilterDefinitionDslImpl<T : Any> :
     }
 }
 
-internal class ConfigurableFilterDefinitionDslImpl<T : Any, C : Any>(configClass: KClass<C>) :
+internal class ConfigurableFilterDefinitionDslImpl<T : Any, C : Any>(configClass: KClass<C>,
+                                                                     configSpec: ConfigSpec<C>) :
         ConfigurableDefinitionDslImpl<T, C,
                 ConfigurableFilterEncodeSpec<T, C>,
                 ConfigurableFilterDecodeSpec<T, C>,
-                ConfigurableFilterDefinition<T, C>>(configClass) {
-    override fun buildDefinition(): ConfigurableFilterDefinition<T, C> =
-            ConfigurableFilterDefinitionImpl(configClass, configSpecs, encodeSpec, decodeSpec)
-
-    class ConfigurableFilterDefinitionImpl<T : Any, C : Any>(private val configClass: KClass<C>,
-                                                             private val configSpecs: List<ConfigSpec<C>>,
-                                                             private val encodeSpec: ConfigurableFilterEncodeSpec<T, C>,
-                                                             private val decodeSpec: ConfigurableFilterDecodeSpec<T, C>) :
-            ConfigurableFilterDefinition<T, C> {
-        override fun withOverrides(overrides: ConfigSpec<C>) =
-                ConfigurableFilterDefinitionImpl(configClass, configSpecs.plusElement(overrides), encodeSpec,
-                        decodeSpec)
-
-        override fun wrapCodec(codec: Codec<T>) = configClass.createConfigInstance(configSpecs).let {
-            object : Codec<T> {
-                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, it, codec)
-                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, it, codec)
+                FilterDefinition<T>>(configClass, configSpec) {
+    override fun buildDefinition() = object : FilterDefinition<T> {
+        override fun wrapCodec(codec: Codec<T>): Codec<T> {
+            val config = configClass.createInstance().apply(configSpec)
+            return object : Codec<T> {
+                override fun encode(value: T, buffer: ByteBuffer) = encodeSpec(value, buffer, config, codec)
+                override fun decode(buffer: ByteBuffer) = decodeSpec(buffer, config, codec)
             }
         }
     }
@@ -192,6 +160,7 @@ internal class SegmentCodecDefinitionDslImpl<T : Segment>(private val segmentCla
             } catch (e: IllegalArgumentException) {
                 if (e.message != null && e.message!!.startsWith("Class should have a single no-arg constructor"))
                     errors.add("Segment class ${segmentClass.simpleName} does not have a no-arg constructor")
+                else throw e
             }
             segmentClass.memberProperties.filter {
                 it.returnType.isSubtypeOf(DelegateProvider::class.createType(
@@ -212,60 +181,16 @@ internal class SegmentCodecDefinitionDslImpl<T : Segment>(private val segmentCla
                 if (buffer.hasRemaining()) throw CodecException("Buffer still has remaining bytes")
             }
         }
-
     }
 }
 
-/**
- * PropertyContext defines the coordinates of a particular property (e.g. in which class the property belongs to)
- */
-internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
-
-internal class S<T : Any> : DefineSegmentPropertyDsl<T> {
-    override infix fun using(codecDefinition: CodecDefinition<T>) = SC(codecDefinition)
-
-    class SC<T : Any>(private val codecDefinition: CodecDefinition<T>) : SegmentPropertyProvider<T>() {
-        override fun buildCodec() = codecDefinition.buildCodec()
-    }
-
-    class SF<T : Any>(private val codec: Codec<T>, private val filterDefinition: FilterDefinition<T>) :
-            SegmentPropertyProvider<T>() {
-        override fun buildCodec() = filterDefinition.wrapCodec(codec)
-    }
-
-    /**
-     * A common class which provides a SegmentProperty in any scenario which is possible to terminate a
-     * defineSegmentProperty statement
-     */
-    abstract class SegmentPropertyProvider<T : Any> : WrappedWithDsl<T>, ThenWithDsl<T> {
-
-        override infix fun wrappedWith(filterDefinition: FilterDefinition<T>) = SF(buildCodec(), filterDefinition)
-
-        override infix fun thenWith(filterDefinition: FilterDefinition<T>) = SF(buildCodec(), filterDefinition)
-
-        abstract fun buildCodec(): Codec<T>
-
-        override operator fun provideDelegate(thisRef: Segment,
-                                              property: KProperty<*>): ReadWriteProperty<Segment, T?> {
-            // property codecs scope is only one per class-property - while segment property is one per segment instance
-            val segmentClass = thisRef::class
-            val propertyContext = PropertyContext(segmentClass, property)
-            if (!propertyCodecs.containsKey(propertyContext)) {
-                synchronized(segmentClass) {
-                    if (!propertyCodecs.containsKey(propertyContext)) {
-                        propertyCodecs[propertyContext] = buildCodec()
-                    }
-                }
-            }
-            return SegmentProperty(propertyContext, propertyCodecs[propertyContext] as Codec<T>).also {
-                thisRef.properties.add(it)
+internal class FiltersCodecDslImpl<T : Any>(val filterDefinitions: List<FilterDefinition<T>>) : FiltersCodecDsl<T> {
+    override fun filters(codecDefinition: CodecDefinition<T>) = object : CodecDefinition<T> {
+        override fun buildCodec(): Codec<T> {
+            return filterDefinitions.foldRight(codecDefinition.buildCodec()) { filterDefinition, codec ->
+                filterDefinition.wrapCodec(codec)
             }
         }
     }
-
-    companion object {
-        val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
-    }
-
 }
 

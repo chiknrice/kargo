@@ -50,14 +50,14 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `Segment properties should be delegated or else it won't be considered a segment property`() {
         class X : Segment() {
-            var a = defineProperty<Any>() using mockCodecDefinition
+            var a = codec(mockCodecDefinition)
         }
 
         val x = X()
         assertThat(x.properties).isEmpty()
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using mockCodecDefinition
+            var a by codec(mockCodecDefinition)
         }
 
         val y = Y()
@@ -67,8 +67,8 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `Segments properties can be val or var and the value defaults to null`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
-            var b by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
+            var b by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -80,7 +80,7 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `The codec is only built when the segment is created`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
         }
 
         verify(exactly = 0) { mockCodecDefinition.buildCodec() }
@@ -93,7 +93,7 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `The codec is only built the first time the segment is created`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
         }
 
         verify(exactly = 0) { mockCodecDefinition.buildCodec() }
@@ -108,8 +108,8 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `The same codec builder used for different properties in the same segment creates different codecs for each property`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
-            var b by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
+            var b by codec(mockCodecDefinition)
         }
 
         verify(exactly = 0) { mockCodecDefinition.buildCodec() }
@@ -122,7 +122,7 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `Segment classes only creates segment properties via segment dsl`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
             var b: Any = Any()
         }
 
@@ -138,9 +138,9 @@ class SegmentPropertyDefinitionTests {
     @Test
     fun `The order of segment properties maintain the order which they were defined in the class`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
-            val b by defineProperty<Any>() using mockCodecDefinition
-            val c by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
+            val b by codec(mockCodecDefinition)
+            val c by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -183,7 +183,7 @@ class SegmentPropertyCodecTests {
     @Test
     fun `Property encode method delegate to codec passing the current value`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using mockCodecDefinition
+            var a by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -198,7 +198,7 @@ class SegmentPropertyCodecTests {
     @Test
     fun `Property encode method throws CodecException if property value is null`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using mockCodecDefinition
+            var a by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -209,7 +209,7 @@ class SegmentPropertyCodecTests {
     @Test
     fun `Property decode method delegates to codec and sets the decoded value as the property's current value`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using mockCodecDefinition
+            var a by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -225,7 +225,7 @@ class SegmentPropertyCodecTests {
     @Test
     fun `A val property can still have a value after decoding`() {
         class X : Segment() {
-            val a by defineProperty<Any>() using mockCodecDefinition
+            val a by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -243,7 +243,7 @@ class SegmentPropertyCodecTests {
     //   against a newly created segment class and all segment property values are null initially
     fun `Decoding a property overrides its current value`() {
         class X : Segment() {
-            var a by defineProperty<Any>() using mockCodecDefinition
+            var a by codec(mockCodecDefinition)
         }
 
         val x = X()
@@ -269,7 +269,7 @@ class SegmentPropertyCodecTests {
         every { exceptionThrowingCodec.decode(mockBuffer) } throws SomeRandomException()
 
         class X : Segment() {
-            var a by defineProperty<Any>() using mockExceptionThrowingCodecDefinition
+            var a by codec(mockExceptionThrowingCodecDefinition)
         }
 
         val x = X()
@@ -300,14 +300,15 @@ class SegmentPropertyCodecTests {
         every { mockDecodeSpec(mockBuffer, capture(configArg)) } returns testValue
 
         val codecs = object : Definition() {
-            val codecDefinition = codec<Any, Config> {
+            fun codecDefinition(configSpec: ConfigSpec<Config> = {}) =
+                    codec<Any, Config>(configSpec) {
                 encode(mockEncodeSpec)
                 decode(mockDecodeSpec)
             }
         }
 
         class X : Segment() {
-            var a by defineProperty<Any>() using codecs.codecDefinition
+            var a by codec(codecs.codecDefinition())
         }
 
         val x = X()
@@ -317,7 +318,7 @@ class SegmentPropertyCodecTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecs.codecDefinition.withOverrides { length = 10 }
+            var a by codec(codecs.codecDefinition { length = 10 })
         }
 
         val y = Y()
@@ -363,9 +364,14 @@ class SegmentPropertyCodecFilterTests {
 
     @Test
     fun `Property encode method delegates to the filter that wraps the codec passing the current value`() {
+
+        val definitions = object : Definition() {
+            val filteredDefinition = chain(filterDefinition) filters codecDefinition
+        }
+
         class X : Segment() {
-            var a by defineProperty<Any>() using codecDefinition
-            var b by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition
+            var a by codec(codecDefinition)
+            var b by codec(definitions.filteredDefinition)
         }
 
         val x = X()
@@ -396,8 +402,12 @@ class SegmentPropertyCodecFilterTests {
         every { lastMockFilterDefinition.wrapCodec(mockFilteredCodec) } returns lastMockFilteredCodec
         every { lastMockFilteredCodec.encode(testValue, mockBuffer) } just Runs
 
+        val definitions = object : Definition() {
+            val filteredDefinition = chain(lastMockFilterDefinition, filterDefinition) filters codecDefinition
+        }
+
         class X : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith lastMockFilterDefinition
+            var a by codec(definitions.filteredDefinition)
         }
 
         val x = X()
@@ -428,15 +438,22 @@ class SegmentPropertyCodecFilterTests {
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockCodec) } just Runs
         every { mockFilterEncodeSpec(testValue, mockBuffer, capture(configArg), mockFilteredCodec) } just Runs
 
-        val filters = object : Definition() {
-            val lastFilterDefinition = filter<Any, Config> {
+        val definitions = object : Definition() {
+            private fun lastFilterDefinition(configSpec: ConfigSpec<Config>) =
+                    filter<Any, Config>(configSpec) {
                 encode(mockFilterEncodeSpec)
                 decode(mockFilterDecodeSpec)
             }
+
+            fun filteredDefinition1(configSpec: ConfigSpec<Config> = {}) =
+                    chain(lastFilterDefinition(configSpec)) filters codecDefinition
+
+            fun filteredDefinition2(configSpec: ConfigSpec<Config> = {}) =
+                    chain(lastFilterDefinition(configSpec), filterDefinition) filters codecDefinition
         }
 
         class W : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filters.lastFilterDefinition
+            var a by codec(definitions.filteredDefinition1())
         }
 
         val w = W()
@@ -446,7 +463,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class X : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith filters.lastFilterDefinition
+            var a by codec(definitions.filteredDefinition2())
         }
 
         val x = X()
@@ -456,7 +473,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(4)
 
         class Y : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filters.lastFilterDefinition.withOverrides { length = 10 }
+            var a by codec(definitions.filteredDefinition1 { length = 10 })
         }
 
         val y = Y()
@@ -466,7 +483,7 @@ class SegmentPropertyCodecFilterTests {
         assertThat(configArg.captured.length).isEqualTo(10)
 
         class Z : Segment() {
-            var a by defineProperty<Any>() using codecDefinition wrappedWith filterDefinition thenWith filters.lastFilterDefinition.withOverrides { length = 10 }
+            var a by codec(definitions.filteredDefinition2 { length = 10 })
         }
 
         val z = Z()

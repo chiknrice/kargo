@@ -31,79 +31,60 @@ interface DefinitionDsl<T : Any, E : Any, D : Any> {
     fun decode(decodeSpec: D)
 }
 
-@KargoDsl
-interface ConfigurableDefinitionDsl<T : Any, C : Any, E : Any, D : Any> : DefinitionDsl<T, E, D> {
-    fun config(configSpec: ConfigSpec<C>)
-}
-
 typealias CodecDefinitionDsl<T> = DefinitionDsl<T, EncodeSpec<T>, DecodeSpec<T>>
-typealias ConfigurableCodecDefinitionDsl<T, C> = ConfigurableDefinitionDsl<T, C, ConfigurableEncodeSpec<T, C>,
+typealias ConfigurableCodecDefinitionDsl<T, C> = DefinitionDsl<T, ConfigurableEncodeSpec<T, C>,
         ConfigurableDecodeSpec<T, C>>
 
 typealias FilterDefinitionDsl<T> = DefinitionDsl<T, FilterEncodeSpec<T>, FilterDecodeSpec<T>>
-typealias ConfigurableFilterDefinitionDsl<T, C> = ConfigurableDefinitionDsl<T, C, ConfigurableFilterEncodeSpec<T, C>,
+typealias ConfigurableFilterDefinitionDsl<T, C> = DefinitionDsl<T, ConfigurableFilterEncodeSpec<T, C>,
         ConfigurableFilterDecodeSpec<T, C>>
 
 typealias SegmentCodecDefinitionDsl<T> = DefinitionDsl<T, EncodeSegmentSpec<T>, DecodeSegmentSpec<T>>
+
+@KargoDsl
+interface FiltersCodecDsl<T : Any> {
+    infix fun filters(codecDefinition: CodecDefinition<T>): CodecDefinition<T>
+}
 
 @KargoDsl
 abstract class Definition {
     fun <T : Any> codec(codecSpec: CodecDefinitionDsl<T>.() -> Unit) =
             CodecDefinitionDslImpl<T>().apply(codecSpec).build()
 
-    fun <T : Any, C : Any> codec(configClass: KClass<C>, codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
-            ConfigurableCodecDefinitionDslImpl<T, C>(configClass).apply(codecSpec).build()
+    fun <T : Any, C : Any> codec(configClass: KClass<C>, configSpec: ConfigSpec<C>,
+                                 codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
+            ConfigurableCodecDefinitionDslImpl<T, C>(configClass, configSpec).apply(codecSpec).build()
 
-    inline fun <T : Any, reified C : Any> codec(noinline codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
-            codec(C::class, codecSpec)
+    inline fun <T : Any, reified C : Any> codec(noinline configSpec: ConfigSpec<C> = {},
+                                                noinline codecSpec: ConfigurableCodecDefinitionDsl<T, C>.() -> Unit) =
+            codec(C::class, configSpec, codecSpec)
 
     fun <T : Any> filter(filterSpec: FilterDefinitionDsl<T>.() -> Unit) =
             FilterDefinitionDslImpl<T>().apply(filterSpec).build()
 
     fun <T : Any, C : Any> filter(configClass: KClass<C>,
+                                  configSpec: ConfigSpec<C>,
                                   filterSpec: ConfigurableFilterDefinitionDsl<T, C>.() -> Unit) =
-            ConfigurableFilterDefinitionDslImpl<T, C>(configClass).apply(filterSpec).build()
+            ConfigurableFilterDefinitionDslImpl<T, C>(configClass, configSpec).apply(filterSpec).build()
 
-    inline fun <T : Any, reified C : Any> filter(
-            noinline filterSpec: ConfigurableFilterDefinitionDsl<T, C>.() -> Unit) =
-            filter(C::class, filterSpec)
+    inline fun <T : Any, reified C : Any> filter(noinline configSpec: ConfigSpec<C> = {},
+                                                 noinline filterSpec: ConfigurableFilterDefinitionDsl<T, C>.() -> Unit) =
+            filter(C::class, configSpec, filterSpec)
 
     fun <T : Segment> segmentCodec(segmentClass: KClass<T>, codecSpec: SegmentCodecDefinitionDsl<T>.() -> Unit) =
             SegmentCodecDefinitionDslImpl(segmentClass).apply(codecSpec).build()
 
     inline fun <reified T : Segment> segmentCodec(noinline codecSpec: SegmentCodecDefinitionDsl<T>.() -> Unit) =
             segmentCodec(T::class, codecSpec)
+
+    fun <T : Any> chain(vararg filterDefinitions: FilterDefinition<T>): FiltersCodecDsl<T> =
+            FiltersCodecDslImpl(filterDefinitions.toList())
 }
 
 /**
- * The contract of what can be done after defineSegmentProperty function
- */
-interface DefineSegmentPropertyDsl<T : Any> {
-    infix fun using(codecDefinition: CodecDefinition<T>): WrappedWithDsl<T>
-}
-
-/**
- * The contract of providing a property delegate
+ * The contract of providing a property delegate, mainly used for validating a Segment class
  */
 interface DelegateProvider<T : Any> {
     operator fun provideDelegate(thisRef: Segment, property: KProperty<*>): ReadWriteProperty<Segment, T?>
 }
 
-/**
- * The contract of providing the option to filter with or without a configuration
- */
-interface WrappedWithDsl<T : Any> : DelegateProvider<T> {
-    infix fun wrappedWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
-}
-
-/**
- * The contract of providing the option to further filter with or without a configuration
- */
-interface ThenWithDsl<T : Any> : DelegateProvider<T> {
-    infix fun thenWith(filterDefinition: FilterDefinition<T>): ThenWithDsl<T>
-}
-
-/**
- * The entrypoint function of defining a segment property
- */
-fun <T : Any> defineProperty(): DefineSegmentPropertyDsl<T> = S()

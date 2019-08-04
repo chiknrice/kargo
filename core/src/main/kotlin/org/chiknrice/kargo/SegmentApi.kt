@@ -20,12 +20,40 @@ package org.chiknrice.kargo
 
 import java.nio.ByteBuffer
 import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
+
+/**
+ * PropertyContext defines the coordinates of a particular property (e.g. in which class the property belongs to)
+ */
+internal data class PropertyContext(val kClass: KClass<*>, val kProperty: KProperty<*>)
 
 abstract class Segment {
 
     internal val properties = mutableListOf<SegmentProperty<*>>()
 
+    fun <T : Any> codec(codecDefinition: CodecDefinition<T>) = object : DelegateProvider<T> {
+        override operator fun provideDelegate(thisRef: Segment,
+                                              property: KProperty<*>): ReadWriteProperty<Segment, T?> {
+            // property codecs scope is only one per class-property - while segment property is one per segment instance
+            val segmentClass = thisRef::class
+            val propertyContext = PropertyContext(segmentClass, property)
+            if (!propertyCodecs.containsKey(propertyContext)) {
+                synchronized(segmentClass) {
+                    if (!propertyCodecs.containsKey(propertyContext)) {
+                        propertyCodecs[propertyContext] = codecDefinition.buildCodec()
+                    }
+                }
+            }
+            return SegmentProperty(propertyContext, propertyCodecs[propertyContext] as Codec<T>).also {
+                thisRef.properties.add(it)
+            }
+        }
+    }
+
+    internal companion object {
+        val propertyCodecs = mutableMapOf<PropertyContext, Codec<*>>()
+    }
 }
 
 class SegmentProperty<T : Any> internal constructor(internal val context: PropertyContext,
