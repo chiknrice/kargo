@@ -27,6 +27,7 @@ import org.chiknrice.kargo.StaticMocks.staticMockCodecDefinition
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 
 // somehow mocks that are member of the test class is causing an issue with createInstance reflection method called
@@ -502,6 +503,43 @@ class RequiredNoArgConstructorTests {
         }
     }
 
+    @Test
+    fun `Any exceptions thrown when creating configuration or segment instances would be rethrown`(
+            @MockK(relaxed = true) mockEncodeSpec: ConfigurableEncodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockDecodeSpec: ConfigurableDecodeSpec<Any, Any>,
+            @MockK(relaxed = true) mockEncodeSegmentSpec: EncodeSegmentSpec<Any>,
+            @MockK(relaxed = true) mockDecodeSegmentSpec: DecodeSegmentSpec<Any>
+    ) {
+        class X {
+            init {
+                throw IllegalArgumentException("test")
+            }
+        }
+
+        class Y : Segment() {
+            init {
+                throw IllegalArgumentException("test")
+            }
+
+            var b by codec(staticMockCodecDefinition)
+        }
+
+        with(object : Definition() {}) {
+            assertThatThrownBy {
+                codec<Any, X> {
+                    encode(mockEncodeSpec)
+                    decode(mockDecodeSpec)
+                }
+            }.isExactlyInstanceOf(InvocationTargetException::class.java)
+
+            assertThatThrownBy {
+                segmentCodec<Y> {
+                    encode(mockEncodeSegmentSpec)
+                    decode(mockDecodeSegmentSpec)
+                }
+            }.isExactlyInstanceOf(InvocationTargetException::class.java)
+        }
+    }
 }
 
 @ExtendWith(MockKExtension::class)
